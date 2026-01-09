@@ -1,2 +1,2 @@
 # luxora-salon-manager
-salon management react wen app
+salon management react web app
