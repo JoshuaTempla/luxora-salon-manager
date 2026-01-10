@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id       String @id @default(uuid())
+  username String @unique
+  password String // Bcrypt hashed
+  role     String @default("ADMIN")
+}
+
+model Employee {
+  id             String        @id @default(uuid())
+  firstName      String
+  lastName       String
+  position       String
+  hourlyRate     Float         @default(0)
+  baseCommission Float         @default(0) // Default commission % if not service-specific
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  transactions   Transaction[]
+  payrolls       Payroll[]
+}
+
+model Service {
+  id             String        @id @default(uuid())
+  name           String        @unique
+  price          Float
+  commissionRate Float         @default(0) // % of price that goes to employee
+  isActive       Boolean       @default(true)
+  transactions   Transaction[]
+}
+
+model Transaction {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  
+  serviceId   String
+  service     Service  @relation(fields: [serviceId], references: [id])
+
+  // Snapshots (Storing price at time of sale in case service price changes later)
+  soldPrice   Float
+  commissionAmount Float 
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  description String
+  amount      Float
+  category    String   // "FIXED" or "VARIABLE"
+  date        DateTime @default(now())
+  isRecurring Boolean  @default(false)
+}
+
+model Payroll {
+  id                String   @id @default(uuid())
+  payrollDate       DateTime @default(now())
+  startDate         DateTime // Start of the 15-day cycle
+  endDate           DateTime // End of the 15-day cycle
+  
+  // Totals for the period
+  totalHoursWorked  Float    @default(0)
+  commissionsEarned Float    @default(0)
+  grossSalary       Float
+  taxDeductions     Float
+  netSalary         Float
+
+  // Relations
+  employeeId        String
+  employee          Employee @relation(fields: [employeeId], references: [id])
+}
