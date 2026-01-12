@@ -31,7 +31,7 @@ export function authenticateToken(req: Request, res: Response, next: NextFunctio
   }
 
   req.user = user;
-  next();
+  return next();
 }
 
 // Optional: Middleware to check for specific roles
@@ -51,6 +51,6 @@ export function requireRole(...roles: string[]) {
       });
     }
 
-    next();
+    return next();
   };
 }
