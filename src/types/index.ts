@@ -1,3 +1,5 @@
+// Location: src/types/index.ts
+
 // User Types
 export interface User {
   id: string;
@@ -160,6 +162,18 @@ export interface DateRange {
   endDate: Date;
 }
 
+// Dashboard Stats
+export interface DashboardStats {
+  totalRevenue: number;
+  activeEmployees: number;
+  servicesToday: number;
+  monthlyExpenses: number;
+  revenueChange?: string;
+  employeeChange?: string;
+  serviceChange?: string;
+  expenseChange?: string;
+}
+
 // API Response Types
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -185,3 +199,6 @@ export interface PaginatedResponse<T> {
     totalPages: number;
   };
 }
+
+// Form Mode Type
+export type FormMode = 'create' | 'edit';
