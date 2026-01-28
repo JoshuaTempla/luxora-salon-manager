@@ -1,6 +1,50 @@
-// Location: src/types/index.ts
+// src/types/index.ts
+// Central export point for all types
 
-// User Types
+// Re-export service types for convenience
+export type {
+  CreateEmployeeDto,
+  UpdateEmployeeDto,
+} from '../services/employeeService';
+
+export type {
+  CreateServiceDto,
+  UpdateServiceDto,
+} from '../services/serviceService';
+
+export type {
+  CreateTransactionDto,
+}from '../services/transactionService'
+
+
+export type {
+  CreateExpenseDto,
+  UpdateExpenseDto,
+} from '../services/expenseService';
+
+export type {
+  CreatePayrollDto,
+  UpdatePayrollDto,
+} from '../services/payrollService';
+
+export type {
+  LoginDto,
+  RegisterDto,
+} from '../services/authService';
+
+// ============================================
+// ENUMS & CONSTANTS
+// ============================================
+export * from './enums';
+
+// ============================================
+// COMMON UTILITY TYPES
+// ============================================
+export * from './common';
+
+// ============================================
+// USER TYPES
+// ============================================
 export interface User {
   id: string;
   username: string;
@@ -19,7 +63,9 @@ export interface LoginCredentials {
   password: string;
 }
 
-// Employee Types
+// ============================================
+// EMPLOYEE TYPES
+// ============================================
 export interface Employee {
   id: string;
   firstName: string;
@@ -28,7 +74,7 @@ export interface Employee {
   hourlyRate: number;
   baseCommission: number;
   isActive: boolean;
-  createdAt: Date;
+  createdAt: string; // ISO date string from API
 }
 
 export interface EmployeeInput {
@@ -41,12 +87,18 @@ export interface EmployeeInput {
 }
 
 export interface EmployeeWithStats extends Employee {
+  fullName?: string;
   totalTransactions?: number;
   totalCommissions?: number;
   totalSales?: number;
+  currentMonthSales?: number;
+  currentMonthCommissions?: number;
+  transactionCount?: number;
 }
 
-// Service Types
+// ============================================
+// SERVICE TYPES
+// ============================================
 export interface Service {
   id: string;
   name: string;
@@ -62,10 +114,18 @@ export interface ServiceInput {
   isActive?: boolean;
 }
 
-// Transaction Types
+export interface ServiceWithStats extends Service {
+  timesProvided?: number;
+  totalRevenue?: number;
+  lastUsed?: string;
+}
+
+// ============================================
+// TRANSACTION TYPES
+// ============================================
 export interface Transaction {
   id: string;
-  createdAt: Date;
+  createdAt: string; // ISO date string
   employeeId: string;
   serviceId: string;
   soldPrice: number;
@@ -73,24 +133,37 @@ export interface Transaction {
 }
 
 export interface TransactionWithDetails extends Transaction {
-  employee?: Employee;
-  service?: Service;
+  employee?: {
+    firstName: string;
+    lastName: string;
+  };
+  service?: {
+    name: string;
+  };
 }
 
 export interface TransactionInput {
   employeeId: string;
   serviceId: string;
-  soldPrice: number;
-  commissionAmount: number;
+  soldPrice?: number; // Optional, will use service price if not provided
 }
 
-// Expense Types
+export interface TransactionFilters {
+  startDate?: string;
+  endDate?: string;
+  employeeId?: string;
+  serviceId?: string;
+}
+
+// ============================================
+// EXPENSE TYPES
+// ============================================
 export interface Expense {
   id: string;
   description: string;
   amount: number;
   category: 'FIXED' | 'VARIABLE';
-  date: Date;
+  date: string; // ISO date string
   isRecurring: boolean;
 }
 
@@ -98,16 +171,25 @@ export interface ExpenseInput {
   description: string;
   amount: number;
   category: 'FIXED' | 'VARIABLE';
-  date?: Date;
+  date?: string;
   isRecurring?: boolean;
 }
 
-// Payroll Types
+export interface ExpenseFilters {
+  startDate?: string;
+  endDate?: string;
+  category?: 'FIXED' | 'VARIABLE';
+  isRecurring?: boolean;
+}
+
+// ============================================
+// PAYROLL TYPES
+// ============================================
 export interface Payroll {
   id: string;
-  payrollDate: Date;
-  startDate: Date;
-  endDate: Date;
+  payrollDate: string; // ISO date string
+  startDate: string;
+  endDate: string;
   totalHoursWorked: number;
   commissionsEarned: number;
   grossSalary: number;
@@ -117,21 +199,83 @@ export interface Payroll {
 }
 
 export interface PayrollWithEmployee extends Payroll {
-  employee?: Employee;
+  employee?: {
+    firstName: string;
+    lastName: string;
+    position: string;
+  };
 }
 
 export interface PayrollInput {
   employeeId: string;
-  startDate: Date;
-  endDate: Date;
+  startDate: string;
+  endDate: string;
   totalHoursWorked: number;
-  commissionsEarned: number;
-  grossSalary: number;
   taxDeductions: number;
-  netSalary: number;
 }
 
-// Analytics & Report Types
+export interface PayrollFilters {
+  startDate?: string;
+  endDate?: string;
+  employeeId?: string;
+}
+
+// ============================================
+// DASHBOARD & ANALYTICS TYPES
+// ============================================
+export interface DashboardStats {
+  todaySales: {
+    total: number;
+    count: number;
+    commissions: number;
+  };
+  monthSales: {
+    total: number;
+    count: number;
+    commissions: number;
+  };
+  todayExpenses: {
+    total: number;
+    count: number;
+  };
+  monthExpenses: {
+    total: number;
+    fixed: number;
+    variable: number;
+  };
+  activeEmployees: number;
+  activeServices: number;
+  // Legacy fields for compatibility
+  totalRevenue?: number;
+  servicesToday?: number;
+  monthlyExpenses?: number;
+  revenueChange?: string;
+  employeeChange?: string;
+  serviceChange?: string;
+  expenseChange?: string;
+}
+
+export interface SalesChart {
+  date: string;
+  sales: number;
+  transactions: number;
+}
+
+export interface TopPerformer {
+  employeeId: string;
+  employeeName: string;
+  totalSales: number;
+  transactionCount: number;
+  commissionsEarned: number;
+}
+
+export interface ServicePerformance {
+  serviceId: string;
+  serviceName: string;
+  timesProvided: number;
+  totalRevenue: number;
+}
+
 export interface SalesReport {
   totalRevenue: number;
   totalTransactions: number;
@@ -157,48 +301,15 @@ export interface ExpenseReport {
   expensesByCategory: Record<string, number>;
 }
 
-export interface DateRange {
-  startDate: Date;
-  endDate: Date;
+// ============================================
+// AUTHENTICATION TYPES
+// ============================================
+export interface AuthResponse {
+  user: User;
+  token?: string;
 }
 
-// Dashboard Stats
-export interface DashboardStats {
-  totalRevenue: number;
-  activeEmployees: number;
-  servicesToday: number;
-  monthlyExpenses: number;
-  revenueChange?: string;
-  employeeChange?: string;
-  serviceChange?: string;
-  expenseChange?: string;
-}
-
-// API Response Types
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-}
-
-// Pagination Types
-export interface PaginationParams {
-  page?: number;
-  limit?: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
-// Form Mode Type
+// ============================================
+// FORM & UI TYPES
+// ============================================
 export type FormMode = 'create' | 'edit';
