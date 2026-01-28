@@ -75,14 +75,6 @@ A comprehensive REST API for managing salon operations including employees, serv
 
 The server will start on `http://localhost:3000`
 
-## Default Credentials
-
-After seeding, you can login with:
-- **Username**: `admin`
-- **Password**: `admin123`
-
-⚠️ **Change this password immediately in production!**
-
 ## API Endpoints
 
 ### Authentication
