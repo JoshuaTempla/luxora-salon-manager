@@ -1,9 +1,10 @@
 {
   "name": "luxora-salon-manager",
   "private": true,
+  "type": "module",
   "version": "0.0.0",
   "scripts": {
-    "dev:server": "nodemon src/server.ts",
+    "dev:server": "tsx watch src/server.ts",
     "dev:client": "vite",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "build:server": "tsc",
@@ -55,6 +56,7 @@
     "prisma": "^7.2.0",
     "tailwindcss": "^3.4.19",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.3.1"

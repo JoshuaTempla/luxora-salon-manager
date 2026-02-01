@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { checkDBConnection, disconnectDB } from './lib/db';
+import { checkDBConnection, disconnectDB } from './lib/db.js';
 
 // Import routes
 import authRoutes from './routes/auth';
