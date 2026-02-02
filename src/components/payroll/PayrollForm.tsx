@@ -1,342 +1,256 @@
-import React, { useState, useEffect } from 'react';
-import { FormInput } from '../common/FormInput';
-import { FormSelect } from '../common/FormSelect';
-import { Button } from '../common/Button';
-import { Modal } from '../common/Modal';
+// Form for creating/editing payroll
 
-interface Employee {
-  id: string;
-  firstName: string;
-  lastName: string;
-  hourlyRate: number;
-  isActive: boolean;
-}
-
-interface Payroll {
-  id?: string;
-  employeeId: string;
-  startDate: string;
-  endDate: string;
-  totalHoursWorked: number;
-  commissionsEarned: number;
-  grossSalary: number;
-  taxDeductions: number;
-  netSalary: number;
-  payrollDate?: string;
-}
+import React, { useEffect, useState } from 'react';
+import { Input, Select, Button, ModalFooter, Alert } from '@/components/common';
+import { useForm, usePayrollCalculator, useEmployees } from '@/hooks';
+import { Payroll, CreatePayrollDto } from '@/types';
+import { formatCurrency, getToday, getStartOfMonth, getEndOfMonth } from '@/utils';
 
 interface PayrollFormProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (payroll: Payroll) => void;
-  employees: Employee[];
-  onCalculateCommissions?: (employeeId: string, startDate: string, endDate: string) => Promise<number>;
+  payroll?: Payroll | null;
+  onSubmit: (data: CreatePayrollDto) => Promise<void>;
+  onCancel: () => void;
+  isSubmitting?: boolean;
 }
 
-export const PayrollForm: React.FC<PayrollFormProps> = ({
-  isOpen,
-  onClose,
+export function PayrollForm({
+  payroll,
   onSubmit,
-  employees,
-  onCalculateCommissions,
-}) => {
-  const [formData, setFormData] = useState<Payroll>({
-    employeeId: '',
-    startDate: '',
-    endDate: '',
-    totalHoursWorked: 0,
-    commissionsEarned: 0,
-    grossSalary: 0,
-    taxDeductions: 0,
-    netSalary: 0,
-  });
+  onCancel,
+  isSubmitting = false,
+}: PayrollFormProps) {
+  const isEditMode = !!payroll;
+  const { employees } = useEmployees();
+  const { calculation, calculatePayroll, loading: calculating } = usePayrollCalculator();
+  const [hasCalculated, setHasCalculated] = useState(false);
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [isCalculating, setIsCalculating] = useState(false);
+  const form = useForm<CreatePayrollDto>(
+    {
+      employeeId: payroll?.employeeId || '',
+      startDate: payroll?.startDate || getStartOfMonth(),
+      endDate: payroll?.endDate || getEndOfMonth(),
+      totalHoursWorked: payroll?.totalHoursWorked || 0,
+      taxDeductions: payroll?.taxDeductions || 0,
+    },
+    {
+      employeeId: {
+        required: true,
+      },
+      startDate: {
+        required: true,
+      },
+      endDate: {
+        required: true,
+      },
+      totalHoursWorked: {
+        required: true,
+        min: 0,
+        custom: (value) => {
+          if (value === undefined || value === null) return null;
+          return value < 0 ? 'Hours worked cannot be negative' : null;
+        },
+      },
+      taxDeductions: {
+        required: true,
+        min: 0,
+        custom: (value) => {
+          if (value === undefined || value === null) return null;
+          return value < 0 ? 'Tax deductions cannot be negative' : null;
+        },
+      },
+    }
+  );
 
   useEffect(() => {
-    if (isOpen) {
-      // Set default date range (last 15 days)
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 15);
-
-      setFormData({
-        employeeId: '',
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0],
-        totalHoursWorked: 0,
-        commissionsEarned: 0,
-        grossSalary: 0,
-        taxDeductions: 0,
-        netSalary: 0,
+    if (payroll) {
+      form.setValues({
+        employeeId: payroll.employeeId,
+        startDate: payroll.startDate,
+        endDate: payroll.endDate,
+        totalHoursWorked: payroll.totalHoursWorked,
+        taxDeductions: payroll.taxDeductions,
       });
-      setSelectedEmployee(null);
-      setErrors({});
+      setHasCalculated(true);
     }
-  }, [isOpen]);
+  }, [payroll]);
 
-  useEffect(() => {
-    if (formData.employeeId) {
-      const employee = employees.find(e => e.id === formData.employeeId);
-      setSelectedEmployee(employee || null);
-    }
-  }, [formData.employeeId, employees]);
-
-  useEffect(() => {
-    calculatePayroll();
-  }, [formData.totalHoursWorked, formData.commissionsEarned, selectedEmployee]);
-
-  const calculatePayroll = () => {
-    if (!selectedEmployee) return;
-
-    const hourlyWages = formData.totalHoursWorked * selectedEmployee.hourlyRate;
-    const grossSalary = hourlyWages + formData.commissionsEarned;
-    const taxRate = 0.15; // 15% tax rate (adjust as needed)
-    const taxDeductions = grossSalary * taxRate;
-    const netSalary = grossSalary - taxDeductions;
-
-    setFormData(prev => ({
-      ...prev,
-      grossSalary,
-      taxDeductions,
-      netSalary,
-    }));
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'number' ? parseFloat(value) || 0 : value,
-    }));
-
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
-  };
-
-  const handleCalculateCommissions = async () => {
-    if (!formData.employeeId || !formData.startDate || !formData.endDate) {
-      setErrors(prev => ({
-        ...prev,
-        general: 'Please select employee and date range first',
-      }));
+  const handleCalculate = async () => {
+    if (!form.values.employeeId || !form.values.startDate || !form.values.endDate || form.values.totalHoursWorked <= 0) {
       return;
     }
 
-    if (onCalculateCommissions) {
-      setIsCalculating(true);
-      try {
-        const commissions = await onCalculateCommissions(
-          formData.employeeId,
-          formData.startDate,
-          formData.endDate
-        );
-        setFormData(prev => ({ ...prev, commissionsEarned: commissions }));
-      } catch (error) {
-        setErrors(prev => ({
-          ...prev,
-          general: 'Failed to calculate commissions',
-        }));
-      } finally {
-        setIsCalculating(false);
-      }
-    }
+    // Calculate with 12% tax rate (simplified)
+    const taxRate = 0.12;
+    await calculatePayroll(
+      form.values.employeeId,
+      form.values.startDate,
+      form.values.endDate,
+      form.values.totalHoursWorked,
+      taxRate
+    );
+    setHasCalculated(true);
   };
 
-  const validate = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.employeeId) {
-      newErrors.employeeId = 'Please select an employee';
-    }
-
-    if (!formData.startDate) {
-      newErrors.startDate = 'Start date is required';
-    }
-
-    if (!formData.endDate) {
-      newErrors.endDate = 'End date is required';
-    }
-
-    if (new Date(formData.startDate) > new Date(formData.endDate)) {
-      newErrors.endDate = 'End date must be after start date';
-    }
-
-    if (formData.totalHoursWorked < 0) {
-      newErrors.totalHoursWorked = 'Hours worked cannot be negative';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const handleSubmit = async () => {
+    await form.handleSubmit(async (values) => {
+      await onSubmit(values);
+      form.reset();
+      setHasCalculated(false);
+    });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (validate()) {
-      onSubmit(formData);
-      onClose();
-    }
-  };
-
-  const handleCancel = () => {
-    setErrors({});
-    onClose();
-  };
-
-  const activeEmployees = employees.filter(e => e.isActive);
-  const employeeOptions = activeEmployees.map(emp => ({
+  const activeEmployees = employees.filter(emp => emp.isActive);
+  const employeeOptions = activeEmployees.map((emp) => ({
+    label: `${emp.firstName} ${emp.lastName} - ${emp.position}`,
     value: emp.id,
-    label: `${emp.firstName} ${emp.lastName}`,
   }));
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={handleCancel}
-      title="Generate Payroll"
-      size="lg"
-    >
-      <form onSubmit={handleSubmit}>
-        {errors.general && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-            <p className="text-red-800 text-sm">{errors.general}</p>
-          </div>
-        )}
+    <div className="space-y-4">
+      {activeEmployees.length === 0 && (
+        <Alert variant="warning">
+          No active employees found. Please create and activate employees first.
+        </Alert>
+      )}
 
-        <FormSelect
-          label="Employee"
-          name="employeeId"
-          value={formData.employeeId}
-          onChange={handleChange}
-          options={employeeOptions}
+      <Select
+        label="Employee"
+        value={form.values.employeeId}
+        onChange={(e) => {
+          form.handleChange('employeeId', e.target.value);
+          setHasCalculated(false);
+        }}
+        onBlur={() => form.handleBlur('employeeId')}
+        error={form.touched.employeeId ? form.errors.employeeId : undefined}
+        options={employeeOptions}
+        placeholder="Select employee"
+        required
+        fullWidth
+        disabled={activeEmployees.length === 0 || isEditMode}
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Input
+          label="Start Date"
+          type="date"
+          value={form.values.startDate}
+          onChange={(e) => {
+            form.handleChange('startDate', e.target.value);
+            setHasCalculated(false);
+          }}
+          onBlur={() => form.handleBlur('startDate')}
+          error={form.touched.startDate ? form.errors.startDate : undefined}
           required
-          error={errors.employeeId}
-          placeholder="Select employee"
+          fullWidth
         />
 
-        {selectedEmployee && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-            <p className="text-blue-800 text-sm">
-              <strong>Hourly Rate:</strong> ${selectedEmployee.hourlyRate.toFixed(2)}/hour
-            </p>
-          </div>
-        )}
+        <Input
+          label="End Date"
+          type="date"
+          value={form.values.endDate}
+          onChange={(e) => {
+            form.handleChange('endDate', e.target.value);
+            setHasCalculated(false);
+          }}
+          onBlur={() => form.handleBlur('endDate')}
+          error={form.touched.endDate ? form.errors.endDate : undefined}
+          required
+          fullWidth
+        />
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormInput
-            label="Start Date"
-            name="startDate"
-            type="date"
-            value={formData.startDate}
-            onChange={handleChange}
-            required
-            error={errors.startDate}
-          />
+      <Input
+        label="Total Hours Worked"
+        type="number"
+        step="0.5"
+        value={form.values.totalHoursWorked}
+        onChange={(e) => {
+          form.handleChange('totalHoursWorked', parseFloat(e.target.value) || 0);
+          setHasCalculated(false);
+        }}
+        onBlur={() => form.handleBlur('totalHoursWorked')}
+        error={form.touched.totalHoursWorked ? form.errors.totalHoursWorked : undefined}
+        required
+        fullWidth
+        placeholder="0"
+      />
 
-          <FormInput
-            label="End Date"
-            name="endDate"
-            type="date"
-            value={formData.endDate}
-            onChange={handleChange}
-            required
-            error={errors.endDate}
-          />
-        </div>
+      <Button
+        variant="outline"
+        onClick={handleCalculate}
+        isLoading={calculating}
+        disabled={!form.values.employeeId || calculating || activeEmployees.length === 0}
+        fullWidth
+      >
+        Calculate Payroll
+      </Button>
 
-        <div className="border-t border-gray-200 my-4 pt-4">
-          <h4 className="text-sm font-semibold text-gray-700 mb-3">Earnings</h4>
-          
-          <FormInput
-            label="Total Hours Worked"
-            name="totalHoursWorked"
-            type="number"
-            value={formData.totalHoursWorked}
-            onChange={handleChange}
-            required
-            min={0}
-            step={0.5}
-            error={errors.totalHoursWorked}
-            placeholder="0"
-          />
+      {calculation && hasCalculated && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+          <h3 className="font-semibold text-gray-900 mb-3">Payroll Calculation</h3>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <span className="text-gray-700">Hours Worked:</span>
+            <span className="font-medium text-gray-900 text-right">{calculation.hoursWorked} hrs</span>
 
-          <div className="flex gap-2 items-end mb-4">
-            <FormInput
-              label="Commissions Earned"
-              name="commissionsEarned"
-              type="number"
-              value={formData.commissionsEarned}
-              onChange={handleChange}
-              min={0}
-              step={0.01}
-              placeholder="0.00"
-              className="flex-1"
-            />
-            {onCalculateCommissions && (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={handleCalculateCommissions}
-                disabled={isCalculating || !formData.employeeId}
-              >
-                {isCalculating ? 'Calculating...' : 'Auto-Calculate'}
-              </Button>
-            )}
-          </div>
-        </div>
+            <span className="text-gray-700">Hourly Earnings:</span>
+            <span className="font-medium text-gray-900 text-right">
+              {formatCurrency(calculation.hourlyEarnings)}
+            </span>
 
-        <div className="border-t border-gray-200 my-4 pt-4">
-          <h4 className="text-sm font-semibold text-gray-700 mb-3">Summary</h4>
-          
-          <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Hourly Wages:</span>
-              <span className="font-medium">
-                ${(formData.totalHoursWorked * (selectedEmployee?.hourlyRate || 0)).toFixed(2)}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Commissions:</span>
-              <span className="font-medium">${formData.commissionsEarned.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-              <span className="text-gray-600">Gross Salary:</span>
-              <span className="font-semibold text-lg">${formData.grossSalary.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Tax Deductions (15%):</span>
-              <span className="text-red-600">-${formData.taxDeductions.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-sm pt-2 border-t border-gray-300">
-              <span className="font-semibold text-gray-900">Net Salary:</span>
-              <span className="font-bold text-xl text-green-600">
-                ${formData.netSalary.toFixed(2)}
-              </span>
-            </div>
+            <span className="text-gray-700">Commissions:</span>
+            <span className="font-medium text-green-600 text-right">
+              {formatCurrency(calculation.commissionsEarned)}
+            </span>
+
+            <span className="text-gray-700 font-semibold">Gross Salary:</span>
+            <span className="font-semibold text-gray-900 text-right">
+              {formatCurrency(calculation.grossSalary)}
+            </span>
+
+            <span className="text-gray-700">Tax Deductions (12%):</span>
+            <span className="font-medium text-red-600 text-right">
+              -{formatCurrency(calculation.taxDeductions)}
+            </span>
+
+            <div className="col-span-2 border-t border-blue-300 my-2"></div>
+
+            <span className="text-gray-700 font-bold text-lg">Net Salary:</span>
+            <span className="font-bold text-blue-600 text-lg text-right">
+              {formatCurrency(calculation.netSalary)}
+            </span>
           </div>
         </div>
+      )}
 
-        <div className="flex gap-3 justify-end mt-6">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={handleCancel}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant="success"
-          >
-            Generate Payroll
-          </Button>
-        </div>
-      </form>
-    </Modal>
+      {hasCalculated && calculation && (
+        <Input
+          label="Tax Deductions (₱)"
+          type="number"
+          step="0.01"
+          value={calculation.taxDeductions}
+          onChange={(e) => form.handleChange('taxDeductions', parseFloat(e.target.value) || 0)}
+          onBlur={() => form.handleBlur('taxDeductions')}
+          error={form.touched.taxDeductions ? form.errors.taxDeductions : undefined}
+          required
+          fullWidth
+          placeholder="0.00"
+          helperText="You can adjust the calculated tax deduction if needed"
+        />
+      )}
+
+      <ModalFooter>
+        <Button variant="outline" onClick={onCancel} disabled={isSubmitting}>
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          onClick={handleSubmit}
+          isLoading={isSubmitting}
+          disabled={!form.isValid || isSubmitting || !hasCalculated || activeEmployees.length === 0}
+        >
+          {isEditMode ? 'Update Payroll' : 'Create Payroll'}
+        </Button>
+      </ModalFooter>
+    </div>
   );
-};
+}

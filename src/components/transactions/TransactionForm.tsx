@@ -1,3 +1,4 @@
+// src/components/transactions/TransactionForm.tsx
 // Form for recording sales/transactions
 
 import React, { useEffect, useState } from 'react';
@@ -39,10 +40,12 @@ export function TransactionForm({
       soldPrice: {
         required: true,
         min: 0,
-        custom: (value) => 
-          value <= 0 ? 'Price must be greater than 0' : null,
+        custom: (value) => {
+          if (value === undefined || value === null) return null;
+          return value <= 0 ? 'Price must be greater than 0' : null;
+        },
       },
-    } 
+    }
   );
 
   // Update sold price when service is selected
@@ -58,7 +61,7 @@ export function TransactionForm({
 
   // Calculate commission preview
   useEffect(() => {
-    if (selectedService && form.values.soldPrice) {
+    if (selectedService && form.values.soldPrice && form.values.soldPrice > 0) {
       const commission = calculateCommission(form.values.soldPrice, selectedService.commissionRate);
       setCalculatedCommission(commission);
     } else {
@@ -142,7 +145,7 @@ export function TransactionForm({
         helperText={selectedService ? `Default price: ${formatCurrency(selectedService.price)}` : undefined}
       />
 
-      {selectedService && form.values.soldPrice > 0 && (
+      {selectedService && form.values.soldPrice !== undefined && form.values.soldPrice > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-700">Commission Rate:</span>

@@ -1,37 +1,6 @@
 // src/types/index.ts
 // Central export point for all types
 
-// Re-export service types for convenience
-export type {
-  CreateEmployeeDto,
-  UpdateEmployeeDto,
-} from '../services/employeeService';
-
-export type {
-  CreateServiceDto,
-  UpdateServiceDto,
-} from '../services/serviceService';
-
-export type {
-  CreateTransactionDto,
-}from '../services/transactionService'
-
-
-export type {
-  CreateExpenseDto,
-  UpdateExpenseDto,
-} from '../services/expenseService';
-
-export type {
-  CreatePayrollDto,
-  UpdatePayrollDto,
-} from '../services/payrollService';
-
-export type {
-  LoginDto,
-  RegisterDto,
-} from '../services/authService';
-
 // ============================================
 // ENUMS & CONSTANTS
 // ============================================
@@ -43,15 +12,57 @@ export * from './enums';
 export * from './common';
 
 // ============================================
-// USER TYPES
+// RE-EXPORT SERVICE TYPES (DTOs)
 // ============================================
-export interface User {
-  id: string;
-  username: string;
-  password: string;
-  role: string;
-}
+export type {
+  Employee,
+  CreateEmployeeDto,
+  UpdateEmployeeDto,
+} from '../services/employeeService';
 
+export type {
+  Service,
+  CreateServiceDto,
+  UpdateServiceDto,
+} from '../services/serviceService';
+
+export type {
+  Transaction,
+  CreateTransactionDto,
+  TransactionFilters,
+} from '../services/transactionService';
+
+export type {
+  Expense,
+  CreateExpenseDto,
+  UpdateExpenseDto,
+  ExpenseFilters,
+} from '../services/expenseService';
+
+export type {
+  Payroll,
+  CreatePayrollDto,
+  UpdatePayrollDto,
+  PayrollFilters,
+} from '../services/payrollService';
+
+export type {
+  User,
+  LoginDto,
+  RegisterDto,
+  AuthResponse,
+} from '../services/authService';
+
+export type {
+  DashboardStats,
+  SalesChart,
+  TopPerformer,
+  ServicePerformance,
+} from '../services/dashboardService';
+
+// ============================================
+// ADDITIONAL USER TYPES
+// ============================================
 export interface UserInput {
   username: string;
   password: string;
@@ -64,19 +75,8 @@ export interface LoginCredentials {
 }
 
 // ============================================
-// EMPLOYEE TYPES
+// EXTENDED EMPLOYEE TYPES
 // ============================================
-export interface Employee {
-  id: string;
-  firstName: string;
-  lastName: string;
-  position: string;
-  hourlyRate: number;
-  baseCommission: number;
-  isActive: boolean;
-  createdAt: string; // ISO date string from API
-}
-
 export interface EmployeeInput {
   firstName: string;
   lastName: string;
@@ -86,7 +86,15 @@ export interface EmployeeInput {
   isActive?: boolean;
 }
 
-export interface EmployeeWithStats extends Employee {
+export interface EmployeeWithStats {
+  id: string;
+  firstName: string;
+  lastName: string;
+  position: string;
+  hourlyRate: number;
+  baseCommission: number;
+  isActive: boolean;
+  createdAt: string;
   fullName?: string;
   totalTransactions?: number;
   totalCommissions?: number;
@@ -97,16 +105,8 @@ export interface EmployeeWithStats extends Employee {
 }
 
 // ============================================
-// SERVICE TYPES
+// EXTENDED SERVICE TYPES
 // ============================================
-export interface Service {
-  id: string;
-  name: string;
-  price: number;
-  commissionRate: number;
-  isActive: boolean;
-}
-
 export interface ServiceInput {
   name: string;
   price: number;
@@ -114,25 +114,27 @@ export interface ServiceInput {
   isActive?: boolean;
 }
 
-export interface ServiceWithStats extends Service {
+export interface ServiceWithStats {
+  id: string;
+  name: string;
+  price: number;
+  commissionRate: number;
+  isActive: boolean;
   timesProvided?: number;
   totalRevenue?: number;
   lastUsed?: string;
 }
 
 // ============================================
-// TRANSACTION TYPES
+// EXTENDED TRANSACTION TYPES
 // ============================================
-export interface Transaction {
+export interface TransactionWithDetails {
   id: string;
-  createdAt: string; // ISO date string
+  createdAt: string;
   employeeId: string;
   serviceId: string;
   soldPrice: number;
   commissionAmount: number;
-}
-
-export interface TransactionWithDetails extends Transaction {
   employee?: {
     firstName: string;
     lastName: string;
@@ -145,28 +147,12 @@ export interface TransactionWithDetails extends Transaction {
 export interface TransactionInput {
   employeeId: string;
   serviceId: string;
-  soldPrice?: number; // Optional, will use service price if not provided
-}
-
-export interface TransactionFilters {
-  startDate?: string;
-  endDate?: string;
-  employeeId?: string;
-  serviceId?: string;
+  soldPrice?: number;
 }
 
 // ============================================
-// EXPENSE TYPES
+// EXTENDED EXPENSE TYPES
 // ============================================
-export interface Expense {
-  id: string;
-  description: string;
-  amount: number;
-  category: 'FIXED' | 'VARIABLE';
-  date: string; // ISO date string
-  isRecurring: boolean;
-}
-
 export interface ExpenseInput {
   description: string;
   amount: number;
@@ -175,19 +161,12 @@ export interface ExpenseInput {
   isRecurring?: boolean;
 }
 
-export interface ExpenseFilters {
-  startDate?: string;
-  endDate?: string;
-  category?: 'FIXED' | 'VARIABLE';
-  isRecurring?: boolean;
-}
-
 // ============================================
-// PAYROLL TYPES
+// EXTENDED PAYROLL TYPES
 // ============================================
-export interface Payroll {
+export interface PayrollWithEmployee {
   id: string;
-  payrollDate: string; // ISO date string
+  payrollDate: string;
   startDate: string;
   endDate: string;
   totalHoursWorked: number;
@@ -196,9 +175,6 @@ export interface Payroll {
   taxDeductions: number;
   netSalary: number;
   employeeId: string;
-}
-
-export interface PayrollWithEmployee extends Payroll {
   employee?: {
     firstName: string;
     lastName: string;
@@ -214,68 +190,9 @@ export interface PayrollInput {
   taxDeductions: number;
 }
 
-export interface PayrollFilters {
-  startDate?: string;
-  endDate?: string;
-  employeeId?: string;
-}
-
 // ============================================
-// DASHBOARD & ANALYTICS TYPES
+// REPORT TYPES
 // ============================================
-export interface DashboardStats {
-  todaySales: {
-    total: number;
-    count: number;
-    commissions: number;
-  };
-  monthSales: {
-    total: number;
-    count: number;
-    commissions: number;
-  };
-  todayExpenses: {
-    total: number;
-    count: number;
-  };
-  monthExpenses: {
-    total: number;
-    fixed: number;
-    variable: number;
-  };
-  activeEmployees: number;
-  activeServices: number;
-  // Legacy fields for compatibility
-  totalRevenue?: number;
-  servicesToday?: number;
-  monthlyExpenses?: number;
-  revenueChange?: string;
-  employeeChange?: string;
-  serviceChange?: string;
-  expenseChange?: string;
-}
-
-export interface SalesChart {
-  date: string;
-  sales: number;
-  transactions: number;
-}
-
-export interface TopPerformer {
-  employeeId: string;
-  employeeName: string;
-  totalSales: number;
-  transactionCount: number;
-  commissionsEarned: number;
-}
-
-export interface ServicePerformance {
-  serviceId: string;
-  serviceName: string;
-  timesProvided: number;
-  totalRevenue: number;
-}
-
 export interface SalesReport {
   totalRevenue: number;
   totalTransactions: number;
@@ -299,14 +216,6 @@ export interface ExpenseReport {
   fixedExpenses: number;
   variableExpenses: number;
   expensesByCategory: Record<string, number>;
-}
-
-// ============================================
-// AUTHENTICATION TYPES
-// ============================================
-export interface AuthResponse {
-  user: User;
-  token?: string;
 }
 
 // ============================================
