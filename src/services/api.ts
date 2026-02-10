@@ -1,11 +1,8 @@
+/// <reference types="vite/client" />
+
 // Base API configuration and HTTP client
 
-import dotenv from 'dotenv';
-
-// Load environment variables
-dotenv.config();
-
-const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 class ApiClient {
   private baseUrl: string;
