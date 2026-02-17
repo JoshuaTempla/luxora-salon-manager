@@ -43,7 +43,7 @@ export const payrollService = {
     if (filters?.startDate) params.append('startDate', filters.startDate);
     if (filters?.endDate) params.append('endDate', filters.endDate);
     if (filters?.employeeId) params.append('employeeId', filters.employeeId);
-    
+
     const query = params.toString() ? `?${params.toString()}` : '';
     return apiClient.get<Payroll[]>(`/payroll${query}`);
   },
@@ -73,7 +73,9 @@ export const payrollService = {
     return this.getAll({ ...filters, employeeId });
   },
 
-  // Calculate payroll for a period (generates calculation before creating)
+  // Calculate payroll preview (without saving)
+  // Backend route: POST /payroll/preview
+  // Backend response shape: { data: { breakdown: { ... } } }
   async calculatePayroll(
     employeeId: string,
     startDate: string,
@@ -81,23 +83,35 @@ export const payrollService = {
     hoursWorked: number,
     taxRate: number
   ): Promise<{
-    employeeId: string;
-    startDate: string;
-    endDate: string;
     hoursWorked: number;
     hourlyEarnings: number;
     commissionsEarned: number;
     grossSalary: number;
     taxDeductions: number;
     netSalary: number;
+    transactionCount: number;
   }> {
-    return apiClient.post('/payroll/calculate', {
+    // Backend expects totalHoursWorked, not hoursWorked
+    const response = await apiClient.post<any>('/payroll/preview', {
       employeeId,
       startDate,
       endDate,
-      hoursWorked,
+      totalHoursWorked: hoursWorked,
       taxRate,
     });
+
+    // Backend returns { employee: {...}, period: {...}, breakdown: {...} }
+    // Flatten breakdown into the shape the frontend expects
+    const b = response.breakdown ?? response;
+    return {
+      hoursWorked: b.totalHoursWorked ?? hoursWorked,
+      hourlyEarnings: b.hourlyPay ?? 0,
+      commissionsEarned: b.commissionsEarned ?? 0,
+      grossSalary: b.grossSalary ?? 0,
+      taxDeductions: b.taxDeductions ?? 0,
+      netSalary: b.netSalary ?? 0,
+      transactionCount: b.transactionCount ?? 0,
+    };
   },
 
   // Get payroll summary for a period
