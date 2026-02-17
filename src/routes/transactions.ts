@@ -1,79 +1,72 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/db';
-import { authenticateToken } from '../middleware/auth';
+// import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
 // All routes require authentication
 // router.use(authenticateToken);
 
+// Helper: calculate commission based on type
+function calculateCommission(
+  price: number,
+  commissionRate: number,
+  commissionType: string
+): number {
+  if (commissionType === 'FIXED') {
+    return commissionRate; // flat amount, ignores price
+  }
+  return (price * commissionRate) / 100; // percentage of price
+}
+
 // Get all transactions
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { employeeId, serviceId, startDate, endDate, page, limit } = req.query;
+    const { startDate, endDate, employeeId, serviceId, limit, offset } = req.query;
 
     const where: any = {};
 
-    // Filter by employee if provided
-    if (employeeId) {
-      where.employeeId = employeeId as string;
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) where.createdAt.gte = new Date(startDate as string);
+      if (endDate) {
+        const end = new Date(endDate as string);
+        end.setHours(23, 59, 59, 999);
+        where.createdAt.lte = end;
+      }
     }
 
-    // Filter by service if provided
-    if (serviceId) {
-      where.serviceId = serviceId as string;
-    }
+    if (employeeId) where.employeeId = employeeId as string;
+    if (serviceId) where.serviceId = serviceId as string;
 
-    // Filter by date range if provided
-    if (startDate && endDate) {
-      where.createdAt = {
-        gte: new Date(startDate as string),
-        lte: new Date(endDate as string),
-      };
-    }
-
-    // Pagination
-    const pageNum = page ? parseInt(page as string) : 1;
-    const limitNum = limit ? parseInt(limit as string) : 50;
-    const skip = (pageNum - 1) * limitNum;
-
-    const [transactions, total] = await Promise.all([
-      prisma.transaction.findMany({
-        where,
-        skip,
-        take: limitNum,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          employee: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              position: true,
-            },
-          },
-          service: {
-            select: {
-              id: true,
-              name: true,
-              price: true,
-              commissionRate: true,
-            },
+    const transactions = await prisma.transaction.findMany({
+      where,
+      include: {
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            position: true,
           },
         },
-      }),
-      prisma.transaction.count({ where }),
-    ]);
+        service: {
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            commissionType: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit ? parseInt(limit as string) : undefined,
+      skip: offset ? parseInt(offset as string) : undefined,
+    });
 
     return res.status(200).json({
       success: true,
       data: transactions,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        totalPages: Math.ceil(total / limitNum),
-      },
     });
   } catch (error) {
     console.error('Get transactions error:', error);
@@ -120,7 +113,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 // Create new transaction
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { employeeId, serviceId, soldPrice, customCommissionRate } = req.body;
+    const { employeeId, serviceId, soldPrice } = req.body;
 
     // Validation
     if (!employeeId || !serviceId) {
@@ -168,7 +161,6 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
-    // Calculate price and commission
     const finalPrice = soldPrice !== undefined ? soldPrice : service.price;
 
     if (finalPrice < 0) {
@@ -178,21 +170,12 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
-    // Use custom commission rate if provided, otherwise use service rate, or employee base rate
-    let commissionRate = service.commissionRate;
-    if (customCommissionRate !== undefined) {
-      if (customCommissionRate < 0 || customCommissionRate > 100) {
-        return res.status(400).json({
-          success: false,
-          error: 'Commission rate must be between 0 and 100',
-        });
-      }
-      commissionRate = customCommissionRate;
-    } else if (service.commissionRate === 0 && employee.baseCommission > 0) {
-      commissionRate = employee.baseCommission;
-    }
-
-    const commissionAmount = (finalPrice * commissionRate) / 100;
+    // Calculate commission based on service's commissionType
+    const commissionAmount = calculateCommission(
+      finalPrice,
+      service.commissionRate,
+      service.commissionType
+    );
 
     // Create transaction
     const transaction = await prisma.transaction.create({
@@ -216,6 +199,7 @@ router.post('/', async (req: Request, res: Response) => {
             id: true,
             name: true,
             price: true,
+            commissionType: true,
           },
         },
       },
@@ -241,7 +225,6 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { soldPrice, commissionAmount } = req.body;
 
-    // Check if transaction exists
     const existingTransaction = await prisma.transaction.findUnique({
       where: { id },
     });
@@ -253,7 +236,6 @@ router.put('/:id', async (req: Request, res: Response) => {
       });
     }
 
-    // Validation
     if (soldPrice !== undefined && soldPrice < 0) {
       return res.status(400).json({
         success: false,
@@ -277,17 +259,10 @@ router.put('/:id', async (req: Request, res: Response) => {
       data: updateData,
       include: {
         employee: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-          },
+          select: { id: true, firstName: true, lastName: true },
         },
         service: {
-          select: {
-            id: true,
-            name: true,
-          },
+          select: { id: true, name: true, commissionType: true },
         },
       },
     });
@@ -311,7 +286,6 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    // Check if transaction exists
     const existingTransaction = await prisma.transaction.findUnique({
       where: { id },
     });
@@ -323,9 +297,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       });
     }
 
-    await prisma.transaction.delete({
-      where: { id },
-    });
+    await prisma.transaction.delete({ where: { id } });
 
     return res.status(200).json({
       success: true,
@@ -336,108 +308,6 @@ router.delete('/:id', async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       error: 'Failed to delete transaction',
-    });
-  }
-});
-
-// Get transaction summary/statistics
-router.get('/summary/stats', async (req: Request, res: Response) => {
-  try {
-    const { employeeId, serviceId, startDate, endDate } = req.query;
-
-    const where: any = {};
-
-    if (employeeId) {
-      where.employeeId = employeeId as string;
-    }
-
-    if (serviceId) {
-      where.serviceId = serviceId as string;
-    }
-
-    if (startDate && endDate) {
-      where.createdAt = {
-        gte: new Date(startDate as string),
-        lte: new Date(endDate as string),
-      };
-    }
-
-    const transactions = await prisma.transaction.findMany({
-      where,
-      include: {
-        employee: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-        service: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    });
-
-    const totalTransactions = transactions.length;
-    const totalRevenue = transactions.reduce((sum, t) => sum + t.soldPrice, 0);
-    const totalCommissions = transactions.reduce((sum, t) => sum + t.commissionAmount, 0);
-    const netRevenue = totalRevenue - totalCommissions;
-    const averageTransaction = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
-
-    // Group by service
-    const serviceBreakdown = transactions.reduce((acc: any, t) => {
-      const serviceName = t.service.name;
-      if (!acc[serviceName]) {
-        acc[serviceName] = {
-          count: 0,
-          revenue: 0,
-          commissions: 0,
-        };
-      }
-      acc[serviceName].count++;
-      acc[serviceName].revenue += t.soldPrice;
-      acc[serviceName].commissions += t.commissionAmount;
-      return acc;
-    }, {});
-
-    // Group by employee
-    const employeeBreakdown = transactions.reduce((acc: any, t) => {
-      const employeeName = `${t.employee.firstName} ${t.employee.lastName}`;
-      if (!acc[employeeName]) {
-        acc[employeeName] = {
-          count: 0,
-          revenue: 0,
-          commissions: 0,
-        };
-      }
-      acc[employeeName].count++;
-      acc[employeeName].revenue += t.soldPrice;
-      acc[employeeName].commissions += t.commissionAmount;
-      return acc;
-    }, {});
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        summary: {
-          totalTransactions,
-          totalRevenue,
-          totalCommissions,
-          netRevenue,
-          averageTransaction,
-        },
-        byService: serviceBreakdown,
-        byEmployee: employeeBreakdown,
-      },
-    });
-  } catch (error) {
-    console.error('Get transaction summary error:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'Failed to fetch transaction summary',
     });
   }
 });
@@ -454,11 +324,10 @@ router.post('/bulk', async (req: Request, res: Response) => {
       });
     }
 
-    // Validate all transactions before creating any
     const validatedTransactions = [];
-    
+
     for (const txn of transactions) {
-      const { employeeId, serviceId, soldPrice, customCommissionRate } = txn;
+      const { employeeId, serviceId, soldPrice } = txn;
 
       if (!employeeId || !serviceId) {
         return res.status(400).json({
@@ -467,7 +336,6 @@ router.post('/bulk', async (req: Request, res: Response) => {
         });
       }
 
-      // Fetch employee and service
       const [employee, service] = await Promise.all([
         prisma.employee.findUnique({ where: { id: employeeId } }),
         prisma.service.findUnique({ where: { id: serviceId } }),
@@ -488,13 +356,11 @@ router.post('/bulk', async (req: Request, res: Response) => {
       }
 
       const finalPrice = soldPrice !== undefined ? soldPrice : service.price;
-      let commissionRate = service.commissionRate || employee.baseCommission;
-      
-      if (customCommissionRate !== undefined) {
-        commissionRate = customCommissionRate;
-      }
-
-      const commissionAmount = (finalPrice * commissionRate) / 100;
+      const commissionAmount = calculateCommission(
+        finalPrice,
+        service.commissionRate,
+        service.commissionType
+      );
 
       validatedTransactions.push({
         employeeId,
@@ -504,16 +370,13 @@ router.post('/bulk', async (req: Request, res: Response) => {
       });
     }
 
-    // Create all transactions
     const created = await prisma.transaction.createMany({
       data: validatedTransactions,
     });
 
     return res.status(201).json({
       success: true,
-      data: {
-        count: created.count,
-      },
+      data: { count: created.count },
       message: `${created.count} transactions created successfully`,
     });
   } catch (error) {

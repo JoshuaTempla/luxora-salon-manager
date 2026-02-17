@@ -1,9 +1,20 @@
 // Business logic calculations
 
+import { CommissionType } from '@/types';
+
 /**
- * Calculate commission amount from price and rate
+ * Calculate commission amount based on commission type
+ * - PERCENTAGE: commission = price * rate / 100
+ * - FIXED: commission = flat rate amount (ignores price)
  */
-export function calculateCommission(price: number, commissionRate: number): number {
+export function calculateCommission(
+  price: number,
+  commissionRate: number,
+  commissionType: CommissionType = 'PERCENTAGE'
+): number {
+  if (commissionType === 'FIXED') {
+    return commissionRate;
+  }
   return (price * commissionRate) / 100;
 }
 

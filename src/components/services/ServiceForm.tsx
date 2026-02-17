@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import { Input, Button, ModalFooter } from '@/components/common';
 import { useForm } from '@/hooks';
-import { Service, CreateServiceDto } from '@/types';
+import { Service, CreateServiceDto, CommissionType } from '@/types';
 
 interface ServiceFormProps {
   service?: Service | null;
@@ -25,6 +25,7 @@ export function ServiceForm({
       name: service?.name || '',
       price: service?.price || 0,
       commissionRate: service?.commissionRate || 0,
+      commissionType: service?.commissionType || 'PERCENTAGE',
     },
     {
       name: {
@@ -41,11 +42,14 @@ export function ServiceForm({
       commissionRate: {
         required: true,
         min: 0,
-        max: 100,
-        custom: (value) =>
-          value < 0 || value > 100
-            ? 'Commission rate must be between 0 and 100'
-            : null,
+        custom: (value) => {
+          if (value < 0) return 'Commission cannot be negative';
+          // Only enforce 100 max for percentage type
+          if (form.values.commissionType === 'PERCENTAGE' && value > 100) {
+            return 'Percentage must be between 0 and 100';
+          }
+          return null;
+        },
       },
     }
   );
@@ -56,6 +60,7 @@ export function ServiceForm({
         name: service.name,
         price: service.price,
         commissionRate: service.commissionRate,
+        commissionType: service.commissionType || 'PERCENTAGE',
       });
     }
   }, [service]);
@@ -66,6 +71,8 @@ export function ServiceForm({
       form.reset();
     });
   };
+
+  const isPercentage = form.values.commissionType === 'PERCENTAGE';
 
   return (
     <div className="space-y-4">
@@ -94,19 +101,61 @@ export function ServiceForm({
           placeholder="0.00"
         />
 
-        <Input
-          label="Commission Rate (%)"
-          type="number"
-          step="0.01"
-          value={form.values.commissionRate}
-          onChange={(e) => form.handleChange('commissionRate', parseFloat(e.target.value) || 0)}
-          onBlur={() => form.handleBlur('commissionRate')}
-          error={form.touched.commissionRate ? form.errors.commissionRate : undefined}
-          required
-          fullWidth
-          placeholder="10.00"
-          helperText="Commission percentage for employees providing this service"
-        />
+        {/* Commission section */}
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">
+            Commission <span className="text-red-500">*</span>
+          </label>
+
+          {/* Toggle */}
+          <div className="flex rounded-lg border border-gray-300 overflow-hidden w-fit">
+            <button
+              type="button"
+              onClick={() => {
+                form.handleChange('commissionType', 'PERCENTAGE' as CommissionType);
+                form.handleChange('commissionRate', 0);
+              }}
+              className={`px-4 py-1.5 text-sm font-medium transition-colors ${
+                isPercentage
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              % Percentage
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                form.handleChange('commissionType', 'FIXED' as CommissionType);
+                form.handleChange('commissionRate', 0);
+              }}
+              className={`px-4 py-1.5 text-sm font-medium transition-colors ${
+                !isPercentage
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              ₱ Fixed
+            </button>
+          </div>
+
+          {/* Commission value input */}
+          <Input
+            type="number"
+            step="0.01"
+            value={form.values.commissionRate}
+            onChange={(e) => form.handleChange('commissionRate', parseFloat(e.target.value) || 0)}
+            onBlur={() => form.handleBlur('commissionRate')}
+            error={form.touched.commissionRate ? form.errors.commissionRate : undefined}
+            fullWidth
+            placeholder={isPercentage ? '10.00' : '50.00'}
+            helperText={
+              isPercentage
+                ? 'Percentage of the sold price (e.g., 15 = 15%)'
+                : 'Fixed peso amount per transaction (e.g., 50 = ₱50)'
+            }
+          />
+        </div>
       </div>
 
       <ModalFooter>

@@ -8,7 +8,7 @@ export interface Employee {
   lastName: string;
   position: string;
   hourlyRate: number;
-  baseCommission: number;
+  baseCommission: number; // kept - backend still returns it, just not exposed in UI
   isActive: boolean;
   createdAt: string;
 }
@@ -18,7 +18,7 @@ export interface CreateEmployeeDto {
   lastName: string;
   position: string;
   hourlyRate: number;
-  baseCommission: number;
+  // baseCommission removed - commission is per-service, not per-employee
 }
 
 export interface UpdateEmployeeDto extends Partial<CreateEmployeeDto> {

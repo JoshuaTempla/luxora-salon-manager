@@ -40,14 +40,14 @@ export function EmployeeList({
         <span className="text-gray-900">{formatCurrency(employee.hourlyRate)}</span>
       ),
     },
-    {
-      key: 'baseCommission',
-      label: 'Commission',
-      sortable: true,
-      render: (employee: Employee) => (
-        <span className="text-gray-900">{employee.baseCommission}%</span>
-      ),
-    },
+    // {
+    //   key: 'baseCommission',
+    //   label: 'Commission',
+    //   sortable: true,
+    //   render: (employee: Employee) => (
+    //     <span className="text-gray-900">{employee.baseCommission}%</span>
+    //   ),
+    // },
     {
       key: 'isActive',
       label: 'Status',

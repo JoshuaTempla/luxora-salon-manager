@@ -37,10 +37,14 @@ export function ServiceList({
     },
     {
       key: 'commissionRate',
-      label: 'Commission Rate',
+      label: 'Commission',
       sortable: true,
       render: (service: Service) => (
-        <span className="text-gray-900">{service.commissionRate}%</span>
+        <span className="text-gray-900">
+          {service.commissionType === 'FIXED'
+            ? formatCurrency(service.commissionRate)
+            : `${service.commissionRate}%`}
+        </span>
       ),
     },
     {

@@ -19,7 +19,7 @@ model Employee {
   lastName       String
   position       String
   hourlyRate     Float         @default(0)
-  baseCommission Float         @default(0) // Default commission % if not service-specific
+  baseCommission Float         @default(0) // Kept in DB but no longer exposed in UI
   isActive       Boolean       @default(true)
   createdAt      DateTime      @default(now())
   transactions   Transaction[]
@@ -30,7 +30,8 @@ model Service {
   id             String        @id @default(uuid())
   name           String        @unique
   price          Float
-  commissionRate Float         @default(0) // % of price that goes to employee
+  commissionRate Float         @default(0)  // Amount: % of price OR fixed peso amount
+  commissionType String        @default("PERCENTAGE") // "PERCENTAGE" or "FIXED"
   isActive       Boolean       @default(true)
   transactions   Transaction[]
 }
@@ -46,8 +47,8 @@ model Transaction {
   serviceId   String
   service     Service  @relation(fields: [serviceId], references: [id])
 
-  // Snapshots (Storing price at time of sale in case service price changes later)
-  soldPrice   Float
+  // Snapshots (storing price at time of sale in case service price changes later)
+  soldPrice        Float
   commissionAmount Float 
 }
 

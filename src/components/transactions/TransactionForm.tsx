@@ -1,11 +1,10 @@
-// src/components/transactions/TransactionForm.tsx
 // Form for recording sales/transactions
 
 import React, { useEffect, useState } from 'react';
 import { Select, Input, Button, ModalFooter, Alert } from '@/components/common';
 import { useForm } from '@/hooks';
 import { useEmployees, useServices } from '@/hooks';
-import { CreateTransactionDto } from '@/types';
+import { CreateTransactionDto, Service } from '@/types';
 import { formatCurrency, calculateCommission } from '@/utils';
 
 interface TransactionFormProps {
@@ -21,7 +20,7 @@ export function TransactionForm({
 }: TransactionFormProps) {
   const { employees } = useEmployees();
   const { services } = useServices();
-  const [selectedService, setSelectedService] = useState<any>(null);
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [calculatedCommission, setCalculatedCommission] = useState(0);
 
   const form = useForm<CreateTransactionDto>(
@@ -59,10 +58,14 @@ export function TransactionForm({
     }
   }, [form.values.serviceId, services]);
 
-  // Calculate commission preview
+  // Calculate commission preview using the service's commissionType
   useEffect(() => {
     if (selectedService && form.values.soldPrice && form.values.soldPrice > 0) {
-      const commission = calculateCommission(form.values.soldPrice, selectedService.commissionRate);
+      const commission = calculateCommission(
+        form.values.soldPrice,
+        selectedService.commissionRate,
+        selectedService.commissionType
+      );
       setCalculatedCommission(commission);
     } else {
       setCalculatedCommission(0);
@@ -90,6 +93,13 @@ export function TransactionForm({
     label: `${svc.name} - ${formatCurrency(svc.price)}`,
     value: svc.id,
   }));
+
+  // Helper to display commission info for selected service
+  const commissionLabel = selectedService
+    ? selectedService.commissionType === 'FIXED'
+      ? `₱${selectedService.commissionRate.toFixed(2)} fixed`
+      : `${selectedService.commissionRate}%`
+    : null;
 
   return (
     <div className="space-y-4">
@@ -142,20 +152,17 @@ export function TransactionForm({
         required
         fullWidth
         placeholder="0.00"
-        helperText={selectedService ? `Default price: ${formatCurrency(selectedService.price)}` : undefined}
+        helperText="Can be adjusted from the default service price"
       />
 
-      {selectedService && form.values.soldPrice !== undefined && form.values.soldPrice > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-700">Commission Rate:</span>
-            <span className="font-medium text-gray-900">{selectedService.commissionRate}%</span>
-          </div>
-          <div className="flex items-center justify-between text-sm mt-2">
-            <span className="text-gray-700">Calculated Commission:</span>
-            <span className="font-semibold text-blue-600 text-lg">
-              {formatCurrency(calculatedCommission)}
+      {/* Commission preview */}
+      {selectedService && calculatedCommission > 0 && (
+        <div className="rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 text-sm text-blue-800">
+          <div className="flex justify-between items-center">
+            <span>
+              Commission ({commissionLabel})
             </span>
+            <span className="font-semibold">{formatCurrency(calculatedCommission)}</span>
           </div>
         </div>
       )}
@@ -168,7 +175,7 @@ export function TransactionForm({
           variant="primary"
           onClick={handleSubmit}
           isLoading={isSubmitting}
-          disabled={!form.isValid || isSubmitting || activeEmployees.length === 0 || activeServices.length === 0}
+          disabled={!form.isValid || isSubmitting}
         >
           Record Sale
         </Button>

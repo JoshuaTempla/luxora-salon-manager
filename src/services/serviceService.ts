@@ -2,11 +2,14 @@
 
 import { apiClient } from './api';
 
+export type CommissionType = 'PERCENTAGE' | 'FIXED';
+
 export interface Service {
   id: string;
   name: string;
   price: number;
   commissionRate: number;
+  commissionType: CommissionType;
   isActive: boolean;
 }
 
@@ -14,6 +17,7 @@ export interface CreateServiceDto {
   name: string;
   price: number;
   commissionRate: number;
+  commissionType: CommissionType;
 }
 
 export interface UpdateServiceDto extends Partial<CreateServiceDto> {

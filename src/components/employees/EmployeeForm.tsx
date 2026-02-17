@@ -26,7 +26,6 @@ export function EmployeeForm({
       lastName: employee?.lastName || '',
       position: employee?.position || '',
       hourlyRate: employee?.hourlyRate || 0,
-      baseCommission: employee?.baseCommission || 0,
     },
     {
       firstName: {
@@ -48,15 +47,6 @@ export function EmployeeForm({
         custom: (value) =>
           value < 0 ? 'Hourly rate cannot be negative' : null,
       },
-      baseCommission: {
-        required: true,
-        min: 0,
-        max: 100,
-        custom: (value) =>
-          value < 0 || value > 100
-            ? 'Commission rate must be between 0 and 100'
-            : null,
-      },
     }
   );
 
@@ -68,7 +58,6 @@ export function EmployeeForm({
         lastName: employee.lastName,
         position: employee.position,
         hourlyRate: employee.hourlyRate,
-        baseCommission: employee.baseCommission,
       });
     }
   }, [employee]);
@@ -96,7 +85,7 @@ export function EmployeeForm({
           error={form.touched.firstName ? form.errors.firstName : undefined}
           required
           fullWidth
-          placeholder="John"
+          placeholder="Juan"
         />
 
         <Input
@@ -107,7 +96,7 @@ export function EmployeeForm({
           error={form.touched.lastName ? form.errors.lastName : undefined}
           required
           fullWidth
-          placeholder="Doe"
+          placeholder="Dela Cruz"
         />
       </div>
 
@@ -123,34 +112,19 @@ export function EmployeeForm({
         fullWidth
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input
-          label="Hourly Rate (₱)"
-          type="number"
-          step="0.01"
-          value={form.values.hourlyRate}
-          onChange={(e) => form.handleChange('hourlyRate', parseFloat(e.target.value) || 0)}
-          onBlur={() => form.handleBlur('hourlyRate')}
-          error={form.touched.hourlyRate ? form.errors.hourlyRate : undefined}
-          required
-          fullWidth
-          placeholder="0.00"
-        />
-
-        <Input
-          label="Base Commission (%)"
-          type="number"
-          step="0.01"
-          value={form.values.baseCommission}
-          onChange={(e) => form.handleChange('baseCommission', parseFloat(e.target.value) || 0)}
-          onBlur={() => form.handleBlur('baseCommission')}
-          error={form.touched.baseCommission ? form.errors.baseCommission : undefined}
-          required
-          fullWidth
-          placeholder="10.00"
-          helperText="Default commission percentage for services"
-        />
-      </div>
+      <Input
+        label="Hourly Rate (₱)"
+        type="number"
+        step="0.01"
+        value={form.values.hourlyRate}
+        onChange={(e) => form.handleChange('hourlyRate', parseFloat(e.target.value) || 0)}
+        onBlur={() => form.handleBlur('hourlyRate')}
+        error={form.touched.hourlyRate ? form.errors.hourlyRate : undefined}
+        required
+        fullWidth
+        placeholder="0.00"
+        helperText="Used to calculate gross salary during payroll"
+      />
 
       <ModalFooter>
         <Button variant="outline" onClick={onCancel} disabled={isSubmitting}>

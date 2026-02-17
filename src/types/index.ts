@@ -24,6 +24,7 @@ export type {
   Service,
   CreateServiceDto,
   UpdateServiceDto,
+  CommissionType,
 } from '../services/serviceService';
 
 export type {
@@ -82,7 +83,7 @@ export interface EmployeeInput {
   lastName: string;
   position: string;
   hourlyRate?: number;
-  baseCommission?: number;
+  // baseCommission removed - commission is per-service only
   isActive?: boolean;
 }
 
@@ -92,7 +93,7 @@ export interface EmployeeWithStats {
   lastName: string;
   position: string;
   hourlyRate: number;
-  baseCommission: number;
+  // baseCommission removed - commission is per-service only
   isActive: boolean;
   createdAt: string;
   fullName?: string;
@@ -111,6 +112,7 @@ export interface ServiceInput {
   name: string;
   price: number;
   commissionRate?: number;
+  commissionType?: 'PERCENTAGE' | 'FIXED';
   isActive?: boolean;
 }
 
@@ -119,6 +121,7 @@ export interface ServiceWithStats {
   name: string;
   price: number;
   commissionRate: number;
+  commissionType: 'PERCENTAGE' | 'FIXED';
   isActive: boolean;
   timesProvided?: number;
   totalRevenue?: number;
