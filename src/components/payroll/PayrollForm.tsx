@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Input, Select, Button, ModalFooter, Alert } from '@/components/common';
 import { useForm, usePayrollCalculator, useEmployees } from '@/hooks';
-import { Payroll, CreatePayrollDto } from '@/types';
+import { Payroll, CreatePayrollDto, DEDUCTION_TYPE_LABELS, DeductionType } from '@/types';
 import { formatCurrency, getToday, getStartOfMonth, getEndOfMonth } from '@/utils';
 
 interface PayrollFormProps {
@@ -33,30 +33,20 @@ export function PayrollForm({
       taxDeductions: payroll?.taxDeductions || 0,
     },
     {
-      employeeId: {
-        required: true,
-      },
-      startDate: {
-        required: true,
-      },
-      endDate: {
-        required: true,
-      },
+      employeeId: { required: true },
+      startDate: { required: true },
+      endDate: { required: true },
       totalHoursWorked: {
         required: true,
         min: 0,
-        custom: (value) => {
-          if (value === undefined || value === null) return null;
-          return value < 0 ? 'Hours worked cannot be negative' : null;
-        },
+        custom: (value) =>
+          value < 0 ? 'Hours worked cannot be negative' : null,
       },
       taxDeductions: {
         required: true,
         min: 0,
-        custom: (value) => {
-          if (value === undefined || value === null) return null;
-          return value < 0 ? 'Tax deductions cannot be negative' : null;
-        },
+        custom: (value) =>
+          value < 0 ? 'Tax deductions cannot be negative' : null,
       },
     }
   );
@@ -75,12 +65,14 @@ export function PayrollForm({
   }, [payroll]);
 
   const handleCalculate = async () => {
-    if (!form.values.employeeId || !form.values.startDate || !form.values.endDate || form.values.totalHoursWorked <= 0) {
-      return;
-    }
+    if (
+      !form.values.employeeId ||
+      !form.values.startDate ||
+      !form.values.endDate ||
+      form.values.totalHoursWorked < 0
+    ) return;
 
-    // Calculate with 12% tax rate (simplified)
-    const taxRate = 0.12;
+    const taxRate = 0.12; // 12% tax
     await calculatePayroll(
       form.values.employeeId,
       form.values.startDate,
@@ -99,9 +91,9 @@ export function PayrollForm({
     });
   };
 
-  const activeEmployees = employees.filter(emp => emp.isActive);
+  const activeEmployees = employees.filter((emp) => emp.isActive);
   const employeeOptions = activeEmployees.map((emp) => ({
-    label: `${emp.firstName} ${emp.lastName} - ${emp.position}`,
+    label: `${emp.firstName} ${emp.lastName} — ${emp.position}`,
     value: emp.id,
   }));
 
@@ -143,7 +135,6 @@ export function PayrollForm({
           required
           fullWidth
         />
-
         <Input
           label="End Date"
           type="date"
@@ -185,21 +176,25 @@ export function PayrollForm({
         Calculate Payroll
       </Button>
 
+      {/* Calculation Preview */}
       {calculation && hasCalculated && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
-          <h3 className="font-semibold text-gray-900 mb-3">Payroll Calculation</h3>
+          <h3 className="font-semibold text-gray-900 mb-3">Payroll Breakdown</h3>
+
           <div className="grid grid-cols-2 gap-2 text-sm">
             <span className="text-gray-700">Hours Worked:</span>
-            <span className="font-medium text-gray-900 text-right">{calculation.hoursWorked} hrs</span>
+            <span className="font-medium text-gray-900 text-right">
+              {calculation.hoursWorked} hrs
+            </span>
 
             <span className="text-gray-700">Hourly Earnings:</span>
             <span className="font-medium text-gray-900 text-right">
               {formatCurrency(calculation.hourlyEarnings)}
             </span>
 
-            <span className="text-gray-700">Commissions:</span>
+            <span className="text-gray-700">Commissions ({calculation.transactionCount} txns):</span>
             <span className="font-medium text-green-600 text-right">
-              {formatCurrency(calculation.commissionsEarned)}
+              +{formatCurrency(calculation.commissionsEarned)}
             </span>
 
             <span className="text-gray-700 font-semibold">Gross Salary:</span>
@@ -208,33 +203,64 @@ export function PayrollForm({
             </span>
 
             <span className="text-gray-700">Tax Deductions (12%):</span>
-            <span className="font-medium text-red-600 text-right">
+            <span className="font-medium text-red-500 text-right">
               -{formatCurrency(calculation.taxDeductions)}
             </span>
 
-            <div className="col-span-2 border-t border-blue-300 my-2"></div>
+            {/* Employee deductions section */}
+            {calculation.employeeDeductionCount > 0 && (
+              <>
+                <div className="col-span-2 border-t border-blue-200 pt-2 mt-1">
+                  <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-1">
+                    Employee Deductions ({calculation.employeeDeductionCount})
+                  </p>
+              </div>
+                {calculation.pendingDeductions.map((d) => (
+                  <React.Fragment key={d.id}>
+                    <span className="text-gray-600 text-xs pl-2">
+                      {DEDUCTION_TYPE_LABELS[d.type as DeductionType] ?? d.type} — {d.description}
+                    </span>
+                    <span className="font-medium text-orange-600 text-right text-xs">
+                      -{formatCurrency(d.amount)}
+                    </span>
+                  </React.Fragment>
+                ))}
+                <span className="text-gray-700 font-medium">Total Deductions:</span>
+                <span className="font-medium text-orange-600 text-right">
+                  -{formatCurrency(calculation.employeeDeductionAmount)}
+                </span>
+              </>
+            )}
+
+            <div className="col-span-2 border-t border-blue-300 my-2" />
 
             <span className="text-gray-700 font-bold text-lg">Net Salary:</span>
             <span className="font-bold text-blue-600 text-lg text-right">
               {formatCurrency(calculation.netSalary)}
             </span>
           </div>
+
+          {calculation.employeeDeductionCount > 0 && (
+            <p className="text-xs text-orange-600 mt-2">
+              ⚠️ {calculation.employeeDeductionCount} pending deduction{calculation.employeeDeductionCount !== 1 ? 's' : ''} will be marked as applied when this payroll is saved.
+            </p>
+          )}
         </div>
       )}
 
-      {hasCalculated && calculation && (
+      {/* Tax deductions input (shown after calculate) */}
+      {hasCalculated && (
         <Input
           label="Tax Deductions (₱)"
           type="number"
           step="0.01"
-          value={calculation.taxDeductions}
+          value={calculation?.taxDeductions ?? form.values.taxDeductions}
           onChange={(e) => form.handleChange('taxDeductions', parseFloat(e.target.value) || 0)}
           onBlur={() => form.handleBlur('taxDeductions')}
           error={form.touched.taxDeductions ? form.errors.taxDeductions : undefined}
           required
           fullWidth
-          placeholder="0.00"
-          helperText="You can adjust the calculated tax deduction if needed"
+          helperText="Auto-calculated at 12% — adjust if needed"
         />
       )}
 
@@ -246,9 +272,9 @@ export function PayrollForm({
           variant="primary"
           onClick={handleSubmit}
           isLoading={isSubmitting}
-          disabled={!form.isValid || isSubmitting || !hasCalculated || activeEmployees.length === 0}
+          disabled={!form.isValid || isSubmitting || !hasCalculated}
         >
-          {isEditMode ? 'Update Payroll' : 'Create Payroll'}
+          {isEditMode ? 'Update Payroll' : 'Save Payroll'}
         </Button>
       </ModalFooter>
     </div>

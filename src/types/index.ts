@@ -48,6 +48,16 @@ export type {
 } from '../services/payrollService';
 
 export type {
+  EmployeeDeduction,
+  CreateDeductionDto,
+  UpdateDeductionDto,
+  DeductionFilters,
+  DeductionType,
+} from '../services/deductionService';
+
+export { DEDUCTION_TYPE_LABELS } from '../services/deductionService';
+
+export type {
   User,
   LoginDto,
   RegisterDto,

@@ -1,4 +1,4 @@
-// Main page for managing expenses
+// Expenses page with tabs: Business Expenses | Employee Deductions
 
 import React, { useState, useMemo } from 'react';
 import {
@@ -7,113 +7,155 @@ import {
   Button,
   Modal,
   LoadingSpinner,
-  ErrorMessage,
   Alert,
   Select,
   Input,
 } from '@/components/common';
 import { ExpenseList } from './ExpenseList';
 import { ExpenseForm } from './ExpenseForm';
-import { useExpenses, useExpenseSummary } from '@/hooks';
-import { Expense, CreateExpenseDto, ExpenseCategory, EXPENSE_CATEGORY_LABELS } from '@/types';
+import { DeductionList } from './DeductionList';
+import { DeductionForm } from './DeductionForm';
+import { useExpenses, useExpenseSummary, useDeductions, useEmployees } from '@/hooks';
+import {
+  Expense,
+  CreateExpenseDto,
+  ExpenseCategory,
+  EXPENSE_CATEGORY_LABELS,
+  EmployeeDeduction,
+  CreateDeductionDto,
+} from '@/types';
 import { formatCurrency, getDateRange, getToday } from '@/utils';
 import { DATE_RANGE_PRESETS } from '@/types';
 
+type ActiveTab = 'business' | 'deductions';
+
 export function ExpensesPage() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<ActiveTab>('business');
+
+  // ── Business Expense state ──────────────────────────────────────────────
+  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [expenseSuccess, setExpenseSuccess] = useState('');
   const [dateRange, setDateRange] = useState<string>(DATE_RANGE_PRESETS.THIS_MONTH);
   const [customStartDate, setCustomStartDate] = useState(getToday());
   const [customEndDate, setCustomEndDate] = useState(getToday());
   const [categoryFilter, setCategoryFilter] = useState('');
   const [recurringFilter, setRecurringFilter] = useState('');
 
-  // Get filters
-  const filters = useMemo(() => {
-    const baseFilters: any = {};
+  // ── Deduction state ─────────────────────────────────────────────────────
+  const [isDeductionModalOpen, setIsDeductionModalOpen] = useState(false);
+  const [deductionSuccess, setDeductionSuccess] = useState('');
+  const [deductionEmployeeFilter, setDeductionEmployeeFilter] = useState('');
+  const [deductionStatusFilter, setDeductionStatusFilter] = useState('');
 
-    // Date range
+  // ── Shared data ─────────────────────────────────────────────────────────
+  const { employees } = useEmployees();
+
+  // ── Business expense filters ────────────────────────────────────────────
+  const expenseFilters = useMemo(() => {
+    const f: any = {};
     if (dateRange === 'custom') {
-      baseFilters.startDate = customStartDate;
-      baseFilters.endDate = customEndDate;
+      f.startDate = customStartDate;
+      f.endDate = customEndDate;
     } else {
       const range = getDateRange(dateRange);
-      baseFilters.startDate = range.startDate;
-      baseFilters.endDate = range.endDate;
+      f.startDate = range.startDate;
+      f.endDate = range.endDate;
     }
-
-    // Category filter
-    if (categoryFilter) {
-      baseFilters.category = categoryFilter as ExpenseCategory;
-    }
-
-    // Recurring filter
-    if (recurringFilter) {
-      baseFilters.isRecurring = recurringFilter === 'true';
-    }
-
-    return baseFilters;
+    if (categoryFilter) f.category = categoryFilter as ExpenseCategory;
+    if (recurringFilter) f.isRecurring = recurringFilter === 'true';
+    return f;
   }, [dateRange, customStartDate, customEndDate, categoryFilter, recurringFilter]);
 
   const {
     expenses,
-    loading,
-    error,
+    loading: expensesLoading,
+    error: expensesError,
     createExpense,
     updateExpense,
     deleteExpense,
-  } = useExpenses(filters);
+  } = useExpenses(expenseFilters);
 
-  // Get summary for current filters
   const { summary } = useExpenseSummary(
-    filters.startDate || getToday(),
-    filters.endDate || getToday()
+    expenseFilters.startDate || getToday(),
+    expenseFilters.endDate || getToday()
   );
 
-  const handleOpenModal = (expense?: Expense) => {
+  // ── Deduction filters ───────────────────────────────────────────────────
+  const deductionFilters = useMemo(() => {
+    const f: any = {};
+    if (deductionEmployeeFilter) f.employeeId = deductionEmployeeFilter;
+    if (deductionStatusFilter !== '') f.isDeducted = deductionStatusFilter === 'true';
+    return f;
+  }, [deductionEmployeeFilter, deductionStatusFilter]);
+
+  const {
+    deductions,
+    loading: deductionsLoading,
+    error: deductionsError,
+    createDeduction,
+    deleteDeduction,
+  } = useDeductions(deductionFilters);
+
+  // ── Business expense handlers ───────────────────────────────────────────
+  const handleOpenExpenseModal = (expense?: Expense) => {
     setSelectedExpense(expense || null);
-    setIsModalOpen(true);
+    setIsExpenseModalOpen(true);
   };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
+  const handleCloseExpenseModal = () => {
+    setIsExpenseModalOpen(false);
     setSelectedExpense(null);
   };
 
-  const handleSubmit = async (data: CreateExpenseDto) => {
+  const handleExpenseSubmit = async (data: CreateExpenseDto) => {
     try {
       if (selectedExpense) {
         await updateExpense(selectedExpense.id, data);
-        setSuccessMessage('Expense updated successfully!');
+        setExpenseSuccess('Expense updated successfully!');
       } else {
         await createExpense(data);
-        setSuccessMessage('Expense created successfully!');
+        setExpenseSuccess('Expense created successfully!');
       }
-      handleCloseModal();
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Failed to save expense:', err);
+      handleCloseExpenseModal();
+      setTimeout(() => setExpenseSuccess(''), 3000);
+    } catch {
+      // error handled by hook
     }
   };
 
-  const handleDelete = async (expense: Expense) => {
+  const handleExpenseDelete = async (expense: Expense) => {
+    await deleteExpense(expense.id);
+    setExpenseSuccess('Expense deleted successfully!');
+    setTimeout(() => setExpenseSuccess(''), 3000);
+  };
+
+  // ── Deduction handlers ──────────────────────────────────────────────────
+  const handleDeductionSubmit = async (data: CreateDeductionDto) => {
     try {
-      await deleteExpense(expense.id);
-      setSuccessMessage('Expense deleted successfully!');
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      console.error('Failed to delete expense:', err);
+      await createDeduction(data);
+      setDeductionSuccess('Deduction added successfully!');
+      setIsDeductionModalOpen(false);
+      setTimeout(() => setDeductionSuccess(''), 3000);
+    } catch {
+      // error handled by hook
     }
   };
 
+  const handleDeductionDelete = async (deduction: EmployeeDeduction) => {
+    await deleteDeduction(deduction.id);
+    setDeductionSuccess('Deduction deleted successfully!');
+    setTimeout(() => setDeductionSuccess(''), 3000);
+  };
+
+  // ── Shared options ──────────────────────────────────────────────────────
   const dateRangeOptions = [
     { label: 'Today', value: DATE_RANGE_PRESETS.TODAY },
     { label: 'This Week', value: DATE_RANGE_PRESETS.THIS_WEEK },
     { label: 'This Month', value: DATE_RANGE_PRESETS.THIS_MONTH },
     { label: 'Last Month', value: DATE_RANGE_PRESETS.LAST_MONTH },
     { label: 'This Year', value: DATE_RANGE_PRESETS.THIS_YEAR },
-    { label: 'Custom Range', value: 'custom' },
+    { label: 'Custom', value: 'custom' },
   ];
 
   const categoryOptions = [
@@ -123,152 +165,246 @@ export function ExpensesPage() {
   ];
 
   const recurringOptions = [
-    { label: 'All Expenses', value: '' },
-    { label: 'Recurring Only', value: 'true' },
-    { label: 'One-time Only', value: 'false' },
+    { label: 'All Types', value: '' },
+    { label: 'Recurring', value: 'true' },
+    { label: 'One-time', value: 'false' },
   ];
 
-  if (loading && expenses.length === 0) {
-    return <LoadingSpinner fullScreen message="Loading expenses..." />;
-  }
+  const employeeOptions = [
+    { label: 'All Employees', value: '' },
+    ...employees.map((e) => ({
+      label: `${e.firstName} ${e.lastName}`,
+      value: e.id,
+    })),
+  ];
 
-  if (error && expenses.length === 0) {
-    return <ErrorMessage message={error} fullScreen />;
-  }
+  const statusOptions = [
+    { label: 'All Statuses', value: '' },
+    { label: 'Pending', value: 'false' },
+    { label: 'Deducted', value: 'true' },
+  ];
+
+  // Summary stats for deductions tab
+  const pendingDeductions = deductions.filter((d) => !d.isDeducted);
+  const pendingTotal = pendingDeductions.reduce((s, d) => s + d.amount, 0);
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Expenses</h1>
-          <p className="text-gray-600 mt-1">Track and manage business expenses</p>
+          <p className="text-gray-600 mt-1">Track business expenses and employee deductions</p>
         </div>
-        <Button variant="primary" onClick={() => handleOpenModal()}>
-          + Add Expense
-        </Button>
+        {activeTab === 'business' ? (
+          <Button variant="primary" onClick={() => handleOpenExpenseModal()}>
+            + Add Expense
+          </Button>
+        ) : (
+          <Button variant="primary" onClick={() => setIsDeductionModalOpen(true)}>
+            + Add Deduction
+          </Button>
+        )}
       </div>
 
-      {successMessage && (
-        <Alert variant="success" onClose={() => setSuccessMessage('')}>
-          {successMessage}
-        </Alert>
-      )}
+      {/* Tab switcher */}
+      <div className="flex rounded-lg border border-gray-200 overflow-hidden w-fit bg-white">
+        <button
+          onClick={() => setActiveTab('business')}
+          className={`px-6 py-2.5 text-sm font-medium transition-colors ${
+            activeTab === 'business'
+              ? 'bg-blue-600 text-white'
+              : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          Business Expenses
+        </button>
+        <button
+          onClick={() => setActiveTab('deductions')}
+          className={`px-6 py-2.5 text-sm font-medium transition-colors relative ${
+            activeTab === 'deductions'
+              ? 'bg-blue-600 text-white'
+              : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          Employee Deductions
+          {pendingDeductions.length > 0 && activeTab !== 'deductions' && (
+            <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold bg-red-500 text-white rounded-full">
+              {pendingDeductions.length}
+            </span>
+          )}
+        </button>
+      </div>
 
-      {error && (
-        <Alert variant="danger">
-          {error}
-        </Alert>
-      )}
+      {/* ── BUSINESS EXPENSES TAB ── */}
+      {activeTab === 'business' && (
+        <>
+          {expenseSuccess && <Alert variant="success">{expenseSuccess}</Alert>}
 
-      {/* Summary Cards */}
-      {summary && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card padding="md" hover>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium text-gray-600">Total Expenses</span>
-              <span className="text-2xl font-bold text-gray-900 mt-1">
-                {formatCurrency(summary.total)}
-              </span>
+          {/* Summary cards */}
+          {summary && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-xl border border-gray-200 p-4">
+                <p className="text-sm text-gray-500">Total Expenses</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {formatCurrency(summary.total ?? 0)}
+                </p>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-200 p-4">
+                <p className="text-sm text-gray-500">Fixed</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {formatCurrency(summary.totalFixed ?? 0)}
+                </p>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-200 p-4">
+                <p className="text-sm text-gray-500">Variable</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {formatCurrency(summary.totalVariable ?? 0)}
+                </p>
+              </div>
             </div>
-          </Card>
-
-          <Card padding="md" hover>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium text-gray-600">Fixed Expenses</span>
-              <span className="text-2xl font-bold text-blue-600 mt-1">
-                {formatCurrency(summary.totalFixed)}
-              </span>
-            </div>
-          </Card>
-
-          <Card padding="md" hover>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium text-gray-600">Variable Expenses</span>
-              <span className="text-2xl font-bold text-yellow-600 mt-1">
-                {formatCurrency(summary.totalVariable)}
-              </span>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      <Card>
-        <CardHeader title="Filters" subtitle="Filter expenses by date, category, or type" />
-        
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Select
-            label="Date Range"
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            options={dateRangeOptions}
-            fullWidth
-          />
-
-          {dateRange === 'custom' && (
-            <>
-              <Input
-                label="Start Date"
-                type="date"
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
-                fullWidth
-              />
-              <Input
-                label="End Date"
-                type="date"
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                fullWidth
-              />
-            </>
           )}
 
-          <Select
-            label="Category"
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            options={categoryOptions}
-            fullWidth
-          />
+          {/* Filters */}
+          <Card>
+            <CardHeader title="Filters" />
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <Select
+                label="Date Range"
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                options={dateRangeOptions}
+                fullWidth
+              />
+              {dateRange === 'custom' && (
+                <>
+                  <Input label="Start Date" type="date" value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)} fullWidth />
+                  <Input label="End Date" type="date" value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)} fullWidth />
+                </>
+              )}
+              <Select label="Category" value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                options={categoryOptions} fullWidth />
+              <Select label="Type" value={recurringFilter}
+                onChange={(e) => setRecurringFilter(e.target.value)}
+                options={recurringOptions} fullWidth />
+            </div>
+          </Card>
 
-          <Select
-            label="Type"
-            value={recurringFilter}
-            onChange={(e) => setRecurringFilter(e.target.value)}
-            options={recurringOptions}
-            fullWidth
-          />
-        </div>
-      </Card>
+          <Card>
+            <CardHeader
+              title="Business Expenses"
+              subtitle={`${expenses.length} expense${expenses.length !== 1 ? 's' : ''}`}
+            />
+            {expensesLoading ? (
+              <LoadingSpinner message="Loading..." />
+            ) : (
+              <ExpenseList
+                expenses={expenses}
+                onEdit={handleOpenExpenseModal}
+                onDelete={handleExpenseDelete}
+              />
+            )}
+          </Card>
+        </>
+      )}
 
-      <Card>
-        <CardHeader
-          title="All Expenses"
-          subtitle={`${expenses.length} expense${expenses.length !== 1 ? 's' : ''}`}
-        />
+      {/* ── EMPLOYEE DEDUCTIONS TAB ── */}
+      {activeTab === 'deductions' && (
+        <>
+          {deductionSuccess && <Alert variant="success">{deductionSuccess}</Alert>}
 
-        {loading ? (
-          <LoadingSpinner message="Updating..." />
-        ) : (
-          <ExpenseList
-            expenses={expenses}
-            onEdit={handleOpenModal}
-            onDelete={handleDelete}
-          />
-        )}
-      </Card>
+          {/* Summary cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <p className="text-sm text-gray-500">Total Deductions Shown</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">
+                {formatCurrency(deductions.reduce((s, d) => s + d.amount, 0))}
+              </p>
+            </div>
+            <div className="bg-yellow-50 rounded-xl border border-yellow-200 p-4">
+              <p className="text-sm text-yellow-700">Pending (not yet deducted)</p>
+              <p className="text-2xl font-bold text-yellow-800 mt-1">
+                {formatCurrency(pendingTotal)}
+              </p>
+              <p className="text-xs text-yellow-600 mt-1">
+                {pendingDeductions.length} deduction{pendingDeductions.length !== 1 ? 's' : ''} pending
+              </p>
+            </div>
+            <div className="bg-green-50 rounded-xl border border-green-200 p-4">
+              <p className="text-sm text-green-700">Already Deducted</p>
+              <p className="text-2xl font-bold text-green-800 mt-1">
+                {formatCurrency(deductions.filter(d => d.isDeducted).reduce((s, d) => s + d.amount, 0))}
+              </p>
+            </div>
+          </div>
 
+          {/* Filters */}
+          <Card>
+            <CardHeader title="Filters" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <Select
+                label="Employee"
+                value={deductionEmployeeFilter}
+                onChange={(e) => setDeductionEmployeeFilter(e.target.value)}
+                options={employeeOptions}
+                fullWidth
+              />
+              <Select
+                label="Status"
+                value={deductionStatusFilter}
+                onChange={(e) => setDeductionStatusFilter(e.target.value)}
+                options={statusOptions}
+                fullWidth
+              />
+            </div>
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="Employee Deductions"
+              subtitle={`${deductions.length} record${deductions.length !== 1 ? 's' : ''}`}
+            />
+            {deductionsLoading ? (
+              <LoadingSpinner message="Loading..." />
+            ) : (
+              <DeductionList
+                deductions={deductions}
+                onDelete={handleDeductionDelete}
+              />
+            )}
+          </Card>
+        </>
+      )}
+
+      {/* Business Expense Modal */}
       <Modal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        title={selectedExpense ? 'Edit Expense' : 'Create New Expense'}
+        isOpen={isExpenseModalOpen}
+        onClose={handleCloseExpenseModal}
+        title={selectedExpense ? 'Edit Expense' : 'Add Business Expense'}
         size="lg"
       >
         <ExpenseForm
           expense={selectedExpense}
-          onSubmit={handleSubmit}
-          onCancel={handleCloseModal}
-          isSubmitting={loading}
+          onSubmit={handleExpenseSubmit}
+          onCancel={handleCloseExpenseModal}
+          isSubmitting={expensesLoading}
+        />
+      </Modal>
+
+      {/* Deduction Modal */}
+      <Modal
+        isOpen={isDeductionModalOpen}
+        onClose={() => setIsDeductionModalOpen(false)}
+        title="Add Employee Deduction"
+        size="lg"
+      >
+        <DeductionForm
+          onSubmit={handleDeductionSubmit}
+          onCancel={() => setIsDeductionModalOpen(false)}
+          isSubmitting={deductionsLoading}
         />
       </Modal>
     </div>

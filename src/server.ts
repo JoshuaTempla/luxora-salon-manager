@@ -11,6 +11,7 @@ import transactionRoutes from './routes/transactions';
 import payrollRoutes from './routes/payroll';
 import expenseRoutes from './routes/expenses';
 import analyticsRoutes from './routes/analytics';
+import deductionRoutes from './routes/deductions';
 
 // Load environment variables
 dotenv.config();
@@ -53,6 +54,7 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/deductions', deductionRoutes);
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {
@@ -68,6 +70,7 @@ app.get('/', (_req: Request, res: Response) => {
       payroll: '/api/payroll',
       expenses: '/api/expenses',
       analytics: '/api/analytics',
+      deductions: '/api/deductions',
     },
   });
 });
@@ -93,21 +96,15 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 // Start server
 async function startServer() {
   try {
-    // Check database connection
     const dbConnected = await checkDBConnection();
     if (!dbConnected) {
       console.error('Failed to connect to database. Exiting...');
       process.exit(1);
     }
 
-    // Start listening
     app.listen(PORT, () => {
-      console.log('=================================');
       console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🔗 API: http://localhost:${PORT}`);
-      console.log(`💚 Health check: http://localhost:${PORT}/health`);
-      console.log('=================================');
+      console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);
@@ -115,25 +112,12 @@ async function startServer() {
   }
 }
 
-// Graceful shutdown
-process.on('SIGINT', async () => {
-  console.log('\n🛑 Shutting down gracefully...');
-  await disconnectDB();
-  process.exit(0);
-});
-
 process.on('SIGTERM', async () => {
-  console.log('\n🛑 Shutting down gracefully...');
+  console.log('SIGTERM received, shutting down gracefully...');
   await disconnectDB();
   process.exit(0);
 });
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-// Start the server
 startServer();
 
 export default app;

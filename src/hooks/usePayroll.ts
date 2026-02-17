@@ -9,7 +9,7 @@ import { useApi } from './useApi';
 export function usePayroll(filters?: PayrollFilters) {
   const [payrolls, setPayrolls] = useState<Payroll[]>([]);
   const { loading, error, execute } = useApi<Payroll[]>();
-  const singleApi = useApi<Payroll>(); // Separate API hook for single payroll operations
+  const singleApi = useApi<Payroll>();
 
   const fetchPayrolls = useCallback(async () => {
     const result = await execute(() => payrollService.getAll(filters));
@@ -59,18 +59,19 @@ export function usePayroll(filters?: PayrollFilters) {
   };
 }
 
-// Hook for payroll calculation
+// Hook for payroll calculation — type must match payrollService.calculatePayroll return shape
 export function usePayrollCalculator() {
   const { data, loading, error, execute } = useApi<{
-    employeeId: string;
-    startDate: string;
-    endDate: string;
     hoursWorked: number;
     hourlyEarnings: number;
     commissionsEarned: number;
     grossSalary: number;
     taxDeductions: number;
+    employeeDeductionAmount: number;
+    employeeDeductionCount: number;
+    pendingDeductions: Array<{ id: string; description: string; amount: number; type: string }>;
     netSalary: number;
+    transactionCount: number;
   }>();
 
   const calculatePayroll = useCallback(

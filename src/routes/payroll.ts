@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/db';
-import { authenticateToken } from '../middleware/auth';
+// import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
@@ -14,12 +14,8 @@ router.get('/', async (req: Request, res: Response) => {
 
     const where: any = {};
 
-    // Filter by employee if provided
-    if (employeeId) {
-      where.employeeId = employeeId as string;
-    }
+    if (employeeId) where.employeeId = employeeId as string;
 
-    // Filter by payroll date range if provided
     if (startDate && endDate) {
       where.payrollDate = {
         gte: new Date(startDate as string),
@@ -27,7 +23,6 @@ router.get('/', async (req: Request, res: Response) => {
       };
     }
 
-    // Pagination
     const pageNum = page ? parseInt(page as string) : 1;
     const limitNum = limit ? parseInt(limit as string) : 50;
     const skip = (pageNum - 1) * limitNum;
@@ -48,6 +43,7 @@ router.get('/', async (req: Request, res: Response) => {
               hourlyRate: true,
             },
           },
+          deductions: true,
         },
       }),
       prisma.payroll.count({ where }),
@@ -81,6 +77,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       where: { id },
       include: {
         employee: true,
+        deductions: true,
       },
     });
 
@@ -104,7 +101,106 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
+// Calculate payroll preview (without saving)
+// Also returns pending employee deductions so the form can display them
+router.post('/preview', async (req: Request, res: Response) => {
+  try {
+    const { employeeId, startDate, endDate, totalHoursWorked, taxRate } = req.body;
+
+    if (!employeeId || !startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'Employee ID, start date, and end date are required',
+      });
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+    });
+
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        error: 'Employee not found',
+      });
+    }
+
+    // Get commissions earned during this period
+    const transactions = await prisma.transaction.findMany({
+      where: {
+        employeeId,
+        createdAt: { gte: start, lte: end },
+      },
+    });
+
+    const commissionsEarned = transactions.reduce((sum, t) => sum + t.commissionAmount, 0);
+
+    // Get ALL pending deductions for this employee (not filtered by date —
+    // deductions accumulate and are cleared on next payroll)
+    const pendingDeductions = await prisma.employeeDeduction.findMany({
+      where: {
+        employeeId,
+        isDeducted: false,
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    const totalDeductionAmount = pendingDeductions.reduce((sum, d) => sum + d.amount, 0);
+
+    // Calculate pay
+    const hoursWorked = totalHoursWorked || 0;
+    const hourlyPay = employee.hourlyRate * hoursWorked;
+    const grossSalary = hourlyPay + commissionsEarned;
+
+    // Tax (use provided rate or default to 10%)
+    const taxPercentage = taxRate !== undefined ? taxRate : 10;
+    const taxDeductions = (grossSalary * taxPercentage) / 100;
+
+    // Net salary = gross - tax - employee deductions
+    const netSalary = grossSalary - taxDeductions - totalDeductionAmount;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        employee: {
+          id: employee.id,
+          firstName: employee.firstName,
+          lastName: employee.lastName,
+          hourlyRate: employee.hourlyRate,
+        },
+        period: { startDate: start, endDate: end },
+        breakdown: {
+          totalHoursWorked: hoursWorked,
+          hourlyRate: employee.hourlyRate,
+          hourlyPay,
+          commissionsEarned,
+          transactionCount: transactions.length,
+          grossSalary,
+          taxRate: taxPercentage,
+          taxDeductions,
+          // Deduction breakdown
+          employeeDeductionAmount: totalDeductionAmount,
+          employeeDeductionCount: pendingDeductions.length,
+          pendingDeductions,
+          netSalary,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Calculate payroll preview error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to calculate payroll preview',
+    });
+  }
+});
+
 // Create new payroll
+// After saving, marks all pending deductions as applied (isDeducted = true)
 router.post('/', async (req: Request, res: Response) => {
   try {
     const {
@@ -116,7 +212,6 @@ router.post('/', async (req: Request, res: Response) => {
       taxDeductions,
     } = req.body;
 
-    // Validation
     if (!employeeId || !startDate || !endDate) {
       return res.status(400).json({
         success: false,
@@ -134,7 +229,6 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
-    // Verify employee exists
     const employee = await prisma.employee.findUnique({
       where: { id: employeeId },
     });
@@ -146,29 +240,14 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
-    // Check for overlapping payroll periods for this employee
+    // Check for overlapping payroll periods
     const overlapping = await prisma.payroll.findFirst({
       where: {
         employeeId,
         OR: [
-          {
-            AND: [
-              { startDate: { lte: start } },
-              { endDate: { gte: start } },
-            ],
-          },
-          {
-            AND: [
-              { startDate: { lte: end } },
-              { endDate: { gte: end } },
-            ],
-          },
-          {
-            AND: [
-              { startDate: { gte: start } },
-              { endDate: { lte: end } },
-            ],
-          },
+          { AND: [{ startDate: { lte: start } }, { endDate: { gte: start } }] },
+          { AND: [{ startDate: { lte: end } }, { endDate: { gte: end } }] },
+          { AND: [{ startDate: { gte: start } }, { endDate: { lte: end } }] },
         ],
       },
     });
@@ -176,51 +255,75 @@ router.post('/', async (req: Request, res: Response) => {
     if (overlapping) {
       return res.status(400).json({
         success: false,
-        error: 'Payroll period overlaps with existing payroll',
+        error: 'Payroll period overlaps with an existing payroll for this employee',
       });
     }
 
-    // Calculate or use provided values
+    // Get all pending deductions for this employee
+    const pendingDeductions = await prisma.employeeDeduction.findMany({
+      where: {
+        employeeId,
+        isDeducted: false,
+      },
+    });
+
+    const totalDeductionAmount = pendingDeductions.reduce((sum, d) => sum + d.amount, 0);
+
     const hoursWorked = totalHoursWorked || 0;
     const commissions = commissionsEarned || 0;
-
-    // Calculate gross salary (hourly rate * hours + commissions)
     const hourlyPay = employee.hourlyRate * hoursWorked;
     const grossSalary = hourlyPay + commissions;
-
-    // Calculate tax deductions (use provided or default to 0)
     const taxes = taxDeductions || 0;
 
-    // Calculate net salary
-    const netSalary = grossSalary - taxes;
+    // Net = gross - tax - employee deductions
+    const netSalary = grossSalary - taxes - totalDeductionAmount;
 
-    const payroll = await prisma.payroll.create({
-      data: {
-        employeeId,
-        startDate: start,
-        endDate: end,
-        totalHoursWorked: hoursWorked,
-        commissionsEarned: commissions,
-        grossSalary,
-        taxDeductions: taxes,
-        netSalary,
-      },
-      include: {
-        employee: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            position: true,
+    // Create payroll and mark deductions in a transaction
+    const payroll = await prisma.$transaction(async (tx) => {
+      // Create the payroll record
+      const newPayroll = await tx.payroll.create({
+        data: {
+          employeeId,
+          startDate: start,
+          endDate: end,
+          totalHoursWorked: hoursWorked,
+          commissionsEarned: commissions,
+          grossSalary,
+          taxDeductions: taxes,
+          netSalary,
+        },
+        include: {
+          employee: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              position: true,
+            },
           },
         },
-      },
+      });
+
+      // Mark all pending deductions as applied and link to this payroll
+      if (pendingDeductions.length > 0) {
+        await tx.employeeDeduction.updateMany({
+          where: {
+            id: { in: pendingDeductions.map((d) => d.id) },
+          },
+          data: {
+            isDeducted: true,
+            payrollId: newPayroll.id,
+          },
+        });
+      }
+
+      return newPayroll;
     });
 
     return res.status(201).json({
       success: true,
       data: payroll,
-      message: 'Payroll created successfully',
+      message: `Payroll created successfully${pendingDeductions.length > 0 ? ` — ${pendingDeductions.length} deduction(s) of ₱${totalDeductionAmount.toFixed(2)} applied` : ''}`,
     });
   } catch (error) {
     console.error('Create payroll error:', error);
@@ -231,107 +334,12 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
-// Calculate payroll preview (without saving)
-router.post('/preview', async (req: Request, res: Response) => {
-  try {
-    const { employeeId, startDate, endDate, totalHoursWorked, taxRate } = req.body;
-
-    if (!employeeId || !startDate || !endDate) {
-      return res.status(400).json({
-        success: false,
-        error: 'Employee ID, start date, and end date are required',
-      });
-    }
-
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    // Verify employee exists
-    const employee = await prisma.employee.findUnique({
-      where: { id: employeeId },
-    });
-
-    if (!employee) {
-      return res.status(404).json({
-        success: false,
-        error: 'Employee not found',
-      });
-    }
-
-    // Get commissions earned during this period
-    const transactions = await prisma.transaction.findMany({
-      where: {
-        employeeId,
-        createdAt: {
-          gte: start,
-          lte: end,
-        },
-      },
-    });
-
-    const commissionsEarned = transactions.reduce(
-      (sum, t) => sum + t.commissionAmount,
-      0
-    );
-
-    // Calculate hours and pay
-    const hoursWorked = totalHoursWorked || 0;
-    const hourlyPay = employee.hourlyRate * hoursWorked;
-    const grossSalary = hourlyPay + commissionsEarned;
-
-    // Calculate tax (use provided rate or default to 10%)
-    const taxPercentage = taxRate !== undefined ? taxRate : 10;
-    const taxDeductions = (grossSalary * taxPercentage) / 100;
-    const netSalary = grossSalary - taxDeductions;
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        employee: {
-          id: employee.id,
-          firstName: employee.firstName,
-          lastName: employee.lastName,
-          hourlyRate: employee.hourlyRate,
-        },
-        period: {
-          startDate: start,
-          endDate: end,
-        },
-        breakdown: {
-          totalHoursWorked: hoursWorked,
-          hourlyRate: employee.hourlyRate,
-          hourlyPay,
-          commissionsEarned,
-          transactionCount: transactions.length,
-          grossSalary,
-          taxRate: taxPercentage,
-          taxDeductions,
-          netSalary,
-        },
-      },
-    });
-  } catch (error) {
-    console.error('Calculate payroll preview error:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'Failed to calculate payroll preview',
-    });
-  }
-});
-
 // Update payroll
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const {
-      totalHoursWorked,
-      commissionsEarned,
-      grossSalary,
-      taxDeductions,
-      netSalary,
-    } = req.body;
+    const { totalHoursWorked, commissionsEarned, grossSalary, taxDeductions, netSalary } = req.body;
 
-    // Check if payroll exists
     const existingPayroll = await prisma.payroll.findUnique({
       where: { id },
       include: { employee: true },
@@ -346,17 +354,10 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     const updateData: any = {};
 
-    if (totalHoursWorked !== undefined) {
-      updateData.totalHoursWorked = totalHoursWorked;
-    }
-    if (commissionsEarned !== undefined) {
-      updateData.commissionsEarned = commissionsEarned;
-    }
-    if (taxDeductions !== undefined) {
-      updateData.taxDeductions = taxDeductions;
-    }
+    if (totalHoursWorked !== undefined) updateData.totalHoursWorked = totalHoursWorked;
+    if (commissionsEarned !== undefined) updateData.commissionsEarned = commissionsEarned;
+    if (taxDeductions !== undefined) updateData.taxDeductions = taxDeductions;
 
-    // Recalculate gross and net salary if values changed
     const hours = totalHoursWorked !== undefined ? totalHoursWorked : existingPayroll.totalHoursWorked;
     const commissions = commissionsEarned !== undefined ? commissionsEarned : existingPayroll.commissionsEarned;
     const taxes = taxDeductions !== undefined ? taxDeductions : existingPayroll.taxDeductions;
@@ -365,25 +366,17 @@ router.put('/:id', async (req: Request, res: Response) => {
     updateData.grossSalary = hourlyPay + commissions;
     updateData.netSalary = updateData.grossSalary - taxes;
 
-    // Allow manual override if explicitly provided
-    if (grossSalary !== undefined) {
-      updateData.grossSalary = grossSalary;
-    }
-    if (netSalary !== undefined) {
-      updateData.netSalary = netSalary;
-    }
+    if (grossSalary !== undefined) updateData.grossSalary = grossSalary;
+    if (netSalary !== undefined) updateData.netSalary = netSalary;
 
     const payroll = await prisma.payroll.update({
       where: { id },
       data: updateData,
       include: {
         employee: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-          },
+          select: { id: true, firstName: true, lastName: true },
         },
+        deductions: true,
       },
     });
 
@@ -406,10 +399,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    // Check if payroll exists
-    const existingPayroll = await prisma.payroll.findUnique({
-      where: { id },
-    });
+    const existingPayroll = await prisma.payroll.findUnique({ where: { id } });
 
     if (!existingPayroll) {
       return res.status(404).json({
@@ -418,9 +408,13 @@ router.delete('/:id', async (req: Request, res: Response) => {
       });
     }
 
-    await prisma.payroll.delete({
-      where: { id },
+    // Unlink any deductions tied to this payroll before deleting
+    await prisma.employeeDeduction.updateMany({
+      where: { payrollId: id },
+      data: { isDeducted: false, payrollId: null },
     });
+
+    await prisma.payroll.delete({ where: { id } });
 
     return res.status(200).json({
       success: true,
@@ -431,80 +425,6 @@ router.delete('/:id', async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       error: 'Failed to delete payroll',
-    });
-  }
-});
-
-// Get payroll summary for an employee
-router.get('/employee/:employeeId/summary', async (req: Request, res: Response) => {
-  try {
-    const { employeeId } = req.params;
-    const { startDate, endDate } = req.query;
-
-    // Verify employee exists
-    const employee = await prisma.employee.findUnique({
-      where: { id: employeeId },
-    });
-
-    if (!employee) {
-      return res.status(404).json({
-        success: false,
-        error: 'Employee not found',
-      });
-    }
-
-    const where: any = { employeeId };
-
-    if (startDate && endDate) {
-      where.payrollDate = {
-        gte: new Date(startDate as string),
-        lte: new Date(endDate as string),
-      };
-    }
-
-    const payrolls = await prisma.payroll.findMany({
-      where,
-      orderBy: { payrollDate: 'desc' },
-    });
-
-    const totalPayrolls = payrolls.length;
-    const totalHoursWorked = payrolls.reduce((sum, p) => sum + p.totalHoursWorked, 0);
-    const totalCommissions = payrolls.reduce((sum, p) => sum + p.commissionsEarned, 0);
-    const totalGrossSalary = payrolls.reduce((sum, p) => sum + p.grossSalary, 0);
-    const totalTaxes = payrolls.reduce((sum, p) => sum + p.taxDeductions, 0);
-    const totalNetSalary = payrolls.reduce((sum, p) => sum + p.netSalary, 0);
-
-    const averageGrossSalary = totalPayrolls > 0 ? totalGrossSalary / totalPayrolls : 0;
-    const averageNetSalary = totalPayrolls > 0 ? totalNetSalary / totalPayrolls : 0;
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        employee: {
-          id: employee.id,
-          firstName: employee.firstName,
-          lastName: employee.lastName,
-          position: employee.position,
-          hourlyRate: employee.hourlyRate,
-        },
-        summary: {
-          totalPayrolls,
-          totalHoursWorked,
-          totalCommissions,
-          totalGrossSalary,
-          totalTaxes,
-          totalNetSalary,
-          averageGrossSalary,
-          averageNetSalary,
-        },
-        payrolls: payrolls.slice(0, 10), // Last 10 payrolls
-      },
-    });
-  } catch (error) {
-    console.error('Get payroll summary error:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'Failed to fetch payroll summary',
     });
   }
 });

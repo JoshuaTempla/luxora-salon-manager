@@ -14,16 +14,17 @@ model User {
 }
 
 model Employee {
-  id             String        @id @default(uuid())
+  id             String              @id @default(uuid())
   firstName      String
   lastName       String
   position       String
-  hourlyRate     Float         @default(0)
-  baseCommission Float         @default(0) // Kept in DB but no longer exposed in UI
-  isActive       Boolean       @default(true)
-  createdAt      DateTime      @default(now())
+  hourlyRate     Float               @default(0)
+  baseCommission Float               @default(0)
+  isActive       Boolean             @default(true)
+  createdAt      DateTime            @default(now())
   transactions   Transaction[]
   payrolls       Payroll[]
+  deductions     EmployeeDeduction[]
 }
 
 model Service {
@@ -49,7 +50,7 @@ model Transaction {
 
   // Snapshots (storing price at time of sale in case service price changes later)
   soldPrice        Float
-  commissionAmount Float 
+  commissionAmount Float
 }
 
 model Expense {
@@ -61,20 +62,34 @@ model Expense {
   isRecurring Boolean  @default(false)
 }
 
+model EmployeeDeduction {
+  id          String   @id @default(uuid())
+  description String
+  amount      Float
+  type        String   // "CASH_ADVANCE" | "EQUIPMENT" | "PENALTY" | "OTHER"
+  date        DateTime @default(now())
+  isDeducted  Boolean  @default(false) // true once applied in a payroll
+
+  // Relations
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+
+  // Filled when deducted via payroll
+  payrollId   String?
+  payroll     Payroll? @relation(fields: [payrollId], references: [id])
+}
+
 model Payroll {
-  id                String   @id @default(uuid())
-  payrollDate       DateTime @default(now())
-  startDate         DateTime // Start of the 15-day cycle
-  endDate           DateTime // End of the 15-day cycle
-  
-  // Totals for the period
-  totalHoursWorked  Float    @default(0)
-  commissionsEarned Float    @default(0)
+  id                String              @id @default(uuid())
+  payrollDate       DateTime            @default(now())
+  startDate         DateTime
+  endDate           DateTime
+  totalHoursWorked  Float               @default(0)
+  commissionsEarned Float               @default(0)
   grossSalary       Float
   taxDeductions     Float
   netSalary         Float
-
-  // Relations
   employeeId        String
-  employee          Employee @relation(fields: [employeeId], references: [id])
+  employee          Employee            @relation(fields: [employeeId], references: [id])
+  deductions        EmployeeDeduction[]
 }
