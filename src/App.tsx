@@ -1,16 +1,13 @@
-// src/App.tsx - Test Dashboard Import
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter } from 'react-router-dom';
 import { Layout } from './components/layout';
-import { DashboardPage } from './components/dashboard';
+import { AppRoutes } from './routes';
 
 function App() {
   return (
     <BrowserRouter>
       <Layout>
-        <Routes>
-          <Route path="*" element={<DashboardPage />} />
-        </Routes>
+        <AppRoutes />
       </Layout>
     </BrowserRouter>
   );

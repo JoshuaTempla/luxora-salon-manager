@@ -10,12 +10,15 @@ export function useTransactions(filters?: TransactionFilters) {
   const { loading, error, execute } = useApi<Transaction[]>();
   const singleApi = useApi<Transaction>(); // Separate API hook for single transaction operations
 
+  // Stringify filters to create stable dependency
+  const filtersKey = JSON.stringify(filters);
+
   const fetchTransactions = useCallback(async () => {
     const result = await execute(() => transactionService.getAll(filters));
     if (result) {
       setTransactions(result);
     }
-  }, [execute, filters]);
+  }, [execute, filtersKey]); // Use filtersKey instead of filters
 
   useEffect(() => {
     fetchTransactions();

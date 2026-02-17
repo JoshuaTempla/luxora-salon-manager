@@ -48,40 +48,86 @@ export interface ServicePerformance {
 }
 
 export const dashboardService = {
-  // Get overview statistics
+  // Get overview statistics - maps to /analytics/dashboard
   async getStats(): Promise<DashboardStats> {
-    return apiClient.get<DashboardStats>('/dashboard/stats');
+    const response = await apiClient.get<any>('/analytics/dashboard');
+    
+    // Transform backend response to match frontend interface
+    return {
+      todaySales: {
+        total: response.overview?.totalRevenue || 0,
+        count: response.overview?.transactionCount || 0,
+        commissions: response.overview?.totalCommissions || 0,
+      },
+      monthSales: {
+        total: response.overview?.totalRevenue || 0,
+        count: response.overview?.transactionCount || 0,
+        commissions: response.overview?.totalCommissions || 0,
+      },
+      todayExpenses: {
+        total: response.expenses?.total || 0,
+        count: 0,
+      },
+      monthExpenses: {
+        total: response.expenses?.total || 0,
+        fixed: response.expenses?.fixed || 0,
+        variable: response.expenses?.variable || 0,
+      },
+      activeEmployees: response.resources?.activeEmployees || 0,
+      activeServices: response.resources?.activeServices || 0,
+    };
   },
 
-  // Get sales chart data for a period
+  // Get sales chart data - maps to /analytics/revenue-trends
   async getSalesChart(startDate: string, endDate: string): Promise<SalesChart[]> {
-    return apiClient.get<SalesChart[]>(
-      `/dashboard/sales-chart?startDate=${startDate}&endDate=${endDate}`
+    const response = await apiClient.get<any>(
+      `/analytics/revenue-trends?startDate=${startDate}&endDate=${endDate}&groupBy=day`
     );
+    
+    return (response.trends || []).map((trend: any) => ({
+      date: trend.period,
+      sales: trend.revenue,
+      transactions: trend.transactions,
+    }));
   },
 
-  // Get top performing employees
+  // Get top performing employees - maps to /analytics/employee-comparison
   async getTopPerformers(
     startDate: string,
     endDate: string,
     limit = 5
   ): Promise<TopPerformer[]> {
-    return apiClient.get<TopPerformer[]>(
-      `/dashboard/top-performers?startDate=${startDate}&endDate=${endDate}&limit=${limit}`
+    const response = await apiClient.get<any[]>(
+      `/analytics/employee-comparison?startDate=${startDate}&endDate=${endDate}`
     );
+    
+    return (response || []).slice(0, limit).map((item: any) => ({
+      employeeId: item.employee.id,
+      employeeName: `${item.employee.firstName} ${item.employee.lastName}`,
+      totalSales: item.performance.totalRevenue,
+      transactionCount: item.performance.transactionCount,
+      commissionsEarned: item.performance.totalCommissions,
+    }));
   },
 
-  // Get service performance
+  // Get service performance - maps to /analytics/service-performance
   async getServicePerformance(
     startDate: string,
     endDate: string
   ): Promise<ServicePerformance[]> {
-    return apiClient.get<ServicePerformance[]>(
-      `/dashboard/service-performance?startDate=${startDate}&endDate=${endDate}`
+    const response = await apiClient.get<any[]>(
+      `/analytics/service-performance?startDate=${startDate}&endDate=${endDate}`
     );
+    
+    return (response || []).map((item: any) => ({
+      serviceId: item.service.id,
+      serviceName: item.service.name,
+      timesProvided: item.performance.transactionCount,
+      totalRevenue: item.performance.totalRevenue,
+    }));
   },
 
-  // Get profit/loss summary
+  // Get profit/loss summary - maps to /analytics/profit-loss
   async getProfitLoss(startDate: string, endDate: string): Promise<{
     totalRevenue: number;
     totalExpenses: number;
@@ -89,8 +135,16 @@ export const dashboardService = {
     netProfit: number;
     profitMargin: number;
   }> {
-    return apiClient.get(
-      `/dashboard/profit-loss?startDate=${startDate}&endDate=${endDate}`
+    const response = await apiClient.get<any>(
+      `/analytics/profit-loss?startDate=${startDate}&endDate=${endDate}`
     );
+    
+    return {
+      totalRevenue: response.revenue?.total || 0,
+      totalExpenses: response.costs?.expenses?.total || 0,
+      totalCommissions: response.costs?.commissions || 0,
+      netProfit: response.profit?.net || 0,
+      profitMargin: response.profit?.profitMargin || 0,
+    };
   },
 };

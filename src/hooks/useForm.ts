@@ -135,7 +135,7 @@ export function useForm<T extends Record<string, any>>(
     errors,
     touched,
     isSubmitting,
-    isValid: Object.keys(errors).length === 0,
+    isValid: Object.values(errors).every(error => !error), // Check if all error values are falsy
     handleChange,
     handleBlur,
     handleSubmit,

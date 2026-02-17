@@ -91,28 +91,28 @@ export function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard
             title="Today's Sales"
-            value={formatCurrency(stats.todaySales.total)}
-            subtitle={`${stats.todaySales.count} transaction${stats.todaySales.count !== 1 ? 's' : ''}`}
+            value={formatCurrency(stats?.todaySales?.total ?? 0)}
+            subtitle={`${stats?.todaySales?.count ?? 0 } transaction${(stats?.todaySales?.count ?? 0) !== 1 ? 's' : ''}`}
             icon={DollarIcon}
             color="green"
           />
           <StatCard
             title="Month Sales"
-            value={formatCurrency(stats.monthSales.total)}
-            subtitle={`${stats.monthSales.count} transaction${stats.monthSales.count !== 1 ? 's' : ''}`}
+            value={formatCurrency(stats?.monthSales?.total ?? 0)}
+            subtitle={`${stats?.monthSales?.count ?? 0} transaction${(stats?.monthSales?.count ?? 0) !== 1 ? 's' : ''}`}
             icon={ChartIcon}
             color="blue"
           />
           <StatCard
             title="Active Employees"
-            value={stats.activeEmployees}
-            subtitle={`${stats.activeServices} active services`}
+            value={stats?.activeEmployees ?? 0}
+            subtitle={`${stats?.activeServices ?? 0 } active services`}
             icon={UsersIcon}
             color="purple"
           />
           <StatCard
             title="Month Commissions"
-            value={formatCurrency(stats.monthSales.commissions)}
+            value={formatCurrency(stats?.monthSales?.commissions ?? 0)}
             subtitle="Paid to employees"
             icon={CashIcon}
             color="yellow"
