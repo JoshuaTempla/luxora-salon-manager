@@ -7,6 +7,7 @@ import { ServicesPage } from '@/components/services';
 import { TransactionsPage } from '@/components/transactions';
 import { ExpensesPage } from '@/components/expenses';
 import { PayrollPage } from '@/components/payroll';
+import { AnalyticsPage } from '@/components/analytics';
 
 export function AppRoutes() {
   return (
@@ -18,6 +19,7 @@ export function AppRoutes() {
       <Route path="/transactions" element={<TransactionsPage />} />
       <Route path="/expenses" element={<ExpensesPage />} />
       <Route path="/payroll" element={<PayrollPage />} />
+      <Route path="/analytics" element={<AnalyticsPage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

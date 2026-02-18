@@ -72,7 +72,7 @@ export function PayrollForm({
       form.values.totalHoursWorked < 0
     ) return;
 
-    const taxRate = 0.12; // 12% tax
+    const taxRate = 0; // Tax defaults to 0 (can be manually adjusted if needed)
     await calculatePayroll(
       form.values.employeeId,
       form.values.startDate,
@@ -202,7 +202,7 @@ export function PayrollForm({
               {formatCurrency(calculation.grossSalary)}
             </span>
 
-            <span className="text-gray-700">Tax Deductions (12%):</span>
+            <span className="text-gray-700">Tax Deductions (0% default):</span>
             <span className="font-medium text-red-500 text-right">
               -{formatCurrency(calculation.taxDeductions)}
             </span>
@@ -214,7 +214,7 @@ export function PayrollForm({
                   <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-1">
                     Employee Deductions ({calculation.employeeDeductionCount})
                   </p>
-              </div>
+                </div>
                 {calculation.pendingDeductions.map((d) => (
                   <React.Fragment key={d.id}>
                     <span className="text-gray-600 text-xs pl-2">
@@ -260,7 +260,7 @@ export function PayrollForm({
           error={form.touched.taxDeductions ? form.errors.taxDeductions : undefined}
           required
           fullWidth
-          helperText="Auto-calculated at 12% — adjust if needed"
+          helperText="Defaults to ₱0 — adjust if needed"
         />
       )}
 

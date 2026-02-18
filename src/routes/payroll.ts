@@ -156,8 +156,8 @@ router.post('/preview', async (req: Request, res: Response) => {
     const hourlyPay = employee.hourlyRate * hoursWorked;
     const grossSalary = hourlyPay + commissionsEarned;
 
-    // Tax (use provided rate or default to 10%)
-    const taxPercentage = taxRate !== undefined ? taxRate : 10;
+    // Tax (use provided rate or default to 0%)
+    const taxPercentage = taxRate !== undefined ? taxRate : 0;
     const taxDeductions = (grossSalary * taxPercentage) / 100;
 
     // Net salary = gross - tax - employee deductions
