@@ -1,3 +1,4 @@
+// src/components/payroll/PayrollForm.tsx
 // Form for creating/editing payroll
 
 import React, { useEffect, useState } from 'react';
@@ -30,6 +31,7 @@ export function PayrollForm({
       startDate: payroll?.startDate || getStartOfMonth(),
       endDate: payroll?.endDate || getEndOfMonth(),
       totalHoursWorked: payroll?.totalHoursWorked || 0,
+      commissionsEarned: payroll?.commissionsEarned || 0,
       taxDeductions: payroll?.taxDeductions || 0,
     },
     {
@@ -42,8 +44,12 @@ export function PayrollForm({
         custom: (value) =>
           value < 0 ? 'Hours worked cannot be negative' : null,
       },
-      taxDeductions: {
+      commissionsEarned: {
         required: true,
+        min: 0,
+      },
+      taxDeductions: {
+        required: false,
         min: 0,
         custom: (value) =>
           value < 0 ? 'Tax deductions cannot be negative' : null,
@@ -58,6 +64,7 @@ export function PayrollForm({
         startDate: payroll.startDate,
         endDate: payroll.endDate,
         totalHoursWorked: payroll.totalHoursWorked,
+        commissionsEarned: payroll.commissionsEarned,
         taxDeductions: payroll.taxDeductions,
       });
       setHasCalculated(true);
@@ -73,13 +80,20 @@ export function PayrollForm({
     ) return;
 
     const taxRate = 0; // Tax defaults to 0 (can be manually adjusted if needed)
-    await calculatePayroll(
+    const result = await calculatePayroll(
       form.values.employeeId,
       form.values.startDate,
       form.values.endDate,
       form.values.totalHoursWorked,
       taxRate
     );
+
+    // Update form with calculated values
+    if (result) {
+      form.handleChange('commissionsEarned', result.commissionsEarned);
+      form.handleChange('taxDeductions', result.taxDeductions);
+    }
+
     setHasCalculated(true);
   };
 
@@ -254,7 +268,7 @@ export function PayrollForm({
           label="Tax Deductions (₱)"
           type="number"
           step="0.01"
-          value={calculation?.taxDeductions ?? form.values.taxDeductions}
+          value={form.values.taxDeductions}
           onChange={(e) => form.handleChange('taxDeductions', parseFloat(e.target.value) || 0)}
           onBlur={() => form.handleBlur('taxDeductions')}
           error={form.touched.taxDeductions ? form.errors.taxDeductions : undefined}

@@ -25,6 +25,7 @@ export interface CreatePayrollDto {
   startDate: string;
   endDate: string;
   totalHoursWorked: number;
+  commissionsEarned: number;
   taxDeductions: number;
 }
 

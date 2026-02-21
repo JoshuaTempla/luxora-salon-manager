@@ -11,6 +11,7 @@ interface PayrollListProps {
   onDelete: (payroll: Payroll) => void;
 }
 
+//TODO: Fix: Payroll deduction should include tax(if available) + employee deductions (if available)
 export function PayrollList({
   payrolls,
   onEdit,
