@@ -1,4 +1,3 @@
-// src/hooks/useEmployees.ts
 // Hook for employee-related operations
 
 import { useState, useEffect, useCallback } from 'react';

@@ -1,4 +1,3 @@
-// src/components/layout/Layout.tsx
 // Main layout component with sidebar and header
 
 import React, { useState } from 'react';

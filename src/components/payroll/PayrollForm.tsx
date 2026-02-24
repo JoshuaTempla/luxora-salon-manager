@@ -1,4 +1,3 @@
-// src/components/payroll/PayrollForm.tsx
 // Form for creating/editing payroll
 
 import React, { useEffect, useState } from 'react';

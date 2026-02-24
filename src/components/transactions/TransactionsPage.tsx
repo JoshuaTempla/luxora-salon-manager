@@ -1,4 +1,3 @@
-// src/components/transactions/TransactionsPage.tsx
 // Main page for managing transactions/sales
 
 import React, { useState, useMemo } from 'react';

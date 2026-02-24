@@ -1,4 +1,3 @@
-// src/utils/constants.ts
 // Application-wide constants
 
 /**

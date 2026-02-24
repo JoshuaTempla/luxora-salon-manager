@@ -1,4 +1,3 @@
-// src/hooks/usePayroll.ts
 // Hook for payroll-related operations
 
 import { useState, useEffect, useCallback } from 'react';

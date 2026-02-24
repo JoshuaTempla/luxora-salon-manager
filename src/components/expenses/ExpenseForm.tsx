@@ -1,4 +1,3 @@
-// src/components/expenses/ExpenseForm.tsx
 // Form for creating/editing expenses
 
 import React, { useEffect } from 'react';

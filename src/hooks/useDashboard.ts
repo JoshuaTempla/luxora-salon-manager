@@ -1,4 +1,3 @@
-// src/hooks/useDashboard.ts
 // Hook for dashboard and analytics
 
 import { useEffect, useCallback } from 'react';

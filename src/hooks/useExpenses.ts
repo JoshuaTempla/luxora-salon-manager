@@ -1,4 +1,3 @@
-// src/hooks/useExpenses.ts
 // Hook for expense-related operations
 
 import { useState, useEffect, useCallback } from 'react';

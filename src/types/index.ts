@@ -1,4 +1,3 @@
-// src/types/index.ts
 // Central export point for all types
 
 // ============================================
