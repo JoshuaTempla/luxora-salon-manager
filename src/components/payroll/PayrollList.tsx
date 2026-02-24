@@ -11,7 +11,6 @@ interface PayrollListProps {
   onDelete: (payroll: Payroll) => void;
 }
 
-//TODO: Fix: Payroll deduction should include tax(if available) + employee deductions (if available)
 export function PayrollList({
   payrolls,
   onEdit,
@@ -45,11 +44,11 @@ export function PayrollList({
     {
       key: 'employee',
       label: 'Employee',
-      render: (payroll: Payroll & { employee?: any }) => (
+      render: (payroll: Payroll) => (
         <span className="text-gray-900">
           {payroll.employee
             ? `${payroll.employee.firstName} ${payroll.employee.lastName}`
-            : '-'}
+            : '—'}
         </span>
       ),
     },
@@ -72,14 +71,37 @@ export function PayrollList({
       ),
     },
     {
-      key: 'taxDeductions',
+      key: 'deductions',
       label: 'Deductions',
       sortable: true,
-      render: (payroll: Payroll) => (
-        <span className="text-red-600">
-          -{formatCurrency(payroll.taxDeductions)}
-        </span>
-      ),
+      render: (payroll: Payroll) => {
+        // Calculate total deductions: tax + employee deductions
+        const employeeDeductionTotal = payroll.deductions?.reduce((sum, d) => sum + d.amount, 0) || 0;
+        const totalDeductions = payroll.taxDeductions + employeeDeductionTotal;
+
+        return (
+          <div className="text-sm">
+            <div className="font-semibold text-red-600">
+              -{formatCurrency(totalDeductions)}
+            </div>
+            {(payroll.taxDeductions > 0 || employeeDeductionTotal > 0) && (
+              <div className="text-xs text-gray-500 space-y-0.5 mt-1">
+                {payroll.taxDeductions > 0 && (
+                  <div>Tax: {formatCurrency(payroll.taxDeductions)}</div>
+                )}
+                {employeeDeductionTotal > 0 && (
+                  <div>
+                    Employee: {formatCurrency(employeeDeductionTotal)}
+                    {payroll.deductions && payroll.deductions.length > 1 && (
+                      <span className="ml-1">({payroll.deductions.length})</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'netSalary',

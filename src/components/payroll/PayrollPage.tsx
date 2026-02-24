@@ -61,10 +61,16 @@ export function PayrollPage() {
     deletePayroll,
   } = usePayroll(filters);
 
-  // Calculate summary
+  // Calculate summary - include both tax and employee deductions
   const summary = useMemo(() => {
     const totalGross = payrolls.reduce((sum, p) => sum + p.grossSalary, 0);
-    const totalDeductions = payrolls.reduce((sum, p) => sum + p.taxDeductions, 0);
+    
+    // Calculate total deductions: tax + employee deductions for each payroll
+    const totalDeductions = payrolls.reduce((sum, p) => {
+      const employeeDeductionTotal = p.deductions?.reduce((s, d) => s + d.amount, 0) || 0;
+      return sum + p.taxDeductions + employeeDeductionTotal;
+    }, 0);
+    
     const totalNet = payrolls.reduce((sum, p) => sum + p.netSalary, 0);
     
     return {

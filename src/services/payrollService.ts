@@ -18,6 +18,12 @@ export interface Payroll {
     lastName: string;
     position: string;
   };
+  deductions?: Array<{
+    id: string;
+    amount: number;
+    description: string;
+    type: string;
+  }>;
 }
 
 export interface CreatePayrollDto {
