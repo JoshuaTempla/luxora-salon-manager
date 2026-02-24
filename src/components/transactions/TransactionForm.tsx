@@ -30,17 +30,13 @@ export function TransactionForm({
       soldPrice: 0,
     },
     {
-      employeeId: {
-        required: true,
-      },
-      serviceId: {
-        required: true,
-      },
+      employeeId: { required: true },
+      serviceId: { required: true },
       soldPrice: {
         required: true,
         min: 0,
         custom: (value) => {
-          if (value === undefined || value === null) return null;
+          if (value === undefined || value === null || isNaN(value)) return 'Price is required';
           return value <= 0 ? 'Price must be greater than 0' : null;
         },
       },
@@ -58,7 +54,7 @@ export function TransactionForm({
     }
   }, [form.values.serviceId, services]);
 
-  // Calculate commission preview using the service's commissionType
+  // Calculate commission preview
   useEffect(() => {
     if (selectedService && form.values.soldPrice && form.values.soldPrice > 0) {
       const commission = calculateCommission(
@@ -94,25 +90,16 @@ export function TransactionForm({
     value: svc.id,
   }));
 
-  // Helper to display commission info for selected service
   const commissionLabel = selectedService
     ? selectedService.commissionType === 'FIXED'
-      ? `₱${selectedService.commissionRate.toFixed(2)} fixed`
-      : `${selectedService.commissionRate}%`
+      ? `Fixed commission: ${formatCurrency(selectedService.commissionRate)}`
+      : `Commission rate: ${selectedService.commissionRate}%`
     : null;
 
   return (
     <div className="space-y-4">
       {activeEmployees.length === 0 && (
-        <Alert variant="warning">
-          No active employees found. Please create and activate employees first.
-        </Alert>
-      )}
-
-      {activeServices.length === 0 && (
-        <Alert variant="warning">
-          No active services found. Please create and activate services first.
-        </Alert>
+        <Alert variant="warning">No active employees found.</Alert>
       )}
 
       <Select
@@ -125,7 +112,6 @@ export function TransactionForm({
         placeholder="Select employee"
         required
         fullWidth
-        disabled={activeEmployees.length === 0}
       />
 
       <Select
@@ -138,32 +124,28 @@ export function TransactionForm({
         placeholder="Select service"
         required
         fullWidth
-        disabled={activeServices.length === 0}
       />
 
       <Input
-        label="Sold Price (₱)"
+        label="Price Sold (₱)"
         type="number"
         step="0.01"
-        value={form.values.soldPrice}
-        onChange={(e) => form.handleChange('soldPrice', parseFloat(e.target.value) || 0)}
-        onBlur={() => form.handleBlur('soldPrice')}
+        value={form.values.soldPrice || ''}
+        onChange={(e) => form.handleChange('soldPrice', e.target.value === '' ? '' : parseFloat(e.target.value))}
+        onBlur={(e) => {
+          form.handleChange('soldPrice', parseFloat(e.target.value) || 0);
+          form.handleBlur('soldPrice');
+        }}
         error={form.touched.soldPrice ? form.errors.soldPrice : undefined}
         required
         fullWidth
         placeholder="0.00"
-        helperText="Can be adjusted from the default service price"
+        helperText={commissionLabel ?? undefined}
       />
 
-      {/* Commission preview */}
-      {selectedService && calculatedCommission > 0 && (
-        <div className="rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 text-sm text-blue-800">
-          <div className="flex justify-between items-center">
-            <span>
-              Commission ({commissionLabel})
-            </span>
-            <span className="font-semibold">{formatCurrency(calculatedCommission)}</span>
-          </div>
+      {calculatedCommission > 0 && (
+        <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-sm text-green-700">
+          Estimated commission: <span className="font-semibold">{formatCurrency(calculatedCommission)}</span>
         </div>
       )}
 

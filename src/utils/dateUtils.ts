@@ -179,3 +179,34 @@ export function formatDateForInput(date: string | Date): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   return dateObj.toISOString().split('T')[0];
 }
+
+/**
+ * Get the current payroll cutoff period based on today's date.
+ * 1st cutoff: 1–15 of current month
+ * 2nd cutoff: 16–end of current month
+ * Workdays are Mon–Fri but dates are calendar-based for the range.
+ */
+export function getPayrollCutoff(): { startDate: string; endDate: string } {
+  const today = new Date();
+  const day = today.getDate();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+
+  if (day <= 15) {
+    // 1st cutoff: 1st to 15th
+    const start = new Date(year, month, 1);
+    const end = new Date(year, month, 15);
+    return {
+      startDate: start.toLocaleDateString('en-CA'),
+      endDate: end.toLocaleDateString('en-CA'),
+    };
+  } else {
+    // 2nd cutoff: 16th to end of month
+    const start = new Date(year, month, 16);
+    const end = new Date(year, month + 1, 0); // day 0 = last day of current month
+    return {
+      startDate: start.toLocaleDateString('en-CA'),
+      endDate: end.toLocaleDateString('en-CA'),
+    };
+  }
+}

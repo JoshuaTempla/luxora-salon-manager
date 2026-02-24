@@ -10,7 +10,6 @@ interface DeductionFormProps {
   onSubmit: (data: CreateDeductionDto) => Promise<void>;
   onCancel: () => void;
   isSubmitting?: boolean;
-  // Pre-select employee if opened from employee context
   defaultEmployeeId?: string;
 }
 
@@ -31,12 +30,8 @@ export function DeductionForm({
       date: getToday(),
     },
     {
-      employeeId: {
-        required: true,
-      },
-      type: {
-        required: true,
-      },
+      employeeId: { required: true },
+      type: { required: true },
       description: {
         required: true,
         custom: (value) =>
@@ -44,12 +39,12 @@ export function DeductionForm({
       },
       amount: {
         required: true,
-        custom: (value) =>
-          value <= 0 ? 'Amount must be greater than 0' : null,
+        custom: (value) => {
+           if (value === undefined || value === null || isNaN(value)) return 'Amount is required';
+          return value <= 0 ? 'Amount must be greater than 0' : null;
+        },
       },
-      date: {
-        required: true,
-      },
+      date: { required: true },
     }
   );
 
@@ -120,9 +115,12 @@ export function DeductionForm({
           label="Amount (₱)"
           type="number"
           step="0.01"
-          value={form.values.amount}
-          onChange={(e) => form.handleChange('amount', parseFloat(e.target.value) || 0)}
-          onBlur={() => form.handleBlur('amount')}
+          value={form.values.amount || ''}
+          onChange={(e) => form.handleChange('amount', parseFloat(e.target.value))}
+          onBlur={(e) => {
+            form.handleChange('amount', parseFloat(e.target.value) || 0);
+            form.handleBlur('amount');
+          }}
           error={form.touched.amount ? form.errors.amount : undefined}
           required
           fullWidth

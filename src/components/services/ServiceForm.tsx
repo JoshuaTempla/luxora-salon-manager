@@ -44,7 +44,6 @@ export function ServiceForm({
         min: 0,
         custom: (value) => {
           if (value < 0) return 'Commission cannot be negative';
-          // Only enforce 100 max for percentage type
           if (form.values.commissionType === 'PERCENTAGE' && value > 100) {
             return 'Percentage must be between 0 and 100';
           }
@@ -92,9 +91,12 @@ export function ServiceForm({
           label="Price (₱)"
           type="number"
           step="0.01"
-          value={form.values.price}
-          onChange={(e) => form.handleChange('price', parseFloat(e.target.value) || 0)}
-          onBlur={() => form.handleBlur('price')}
+          value={form.values.price || ''}
+          onChange={(e) => form.handleChange('price', e.target.value === '' ? '' : parseFloat(e.target.value))}
+          onBlur={(e) => {
+            form.handleChange('price', parseFloat(e.target.value) || 0);
+            form.handleBlur('price');
+          }}
           error={form.touched.price ? form.errors.price : undefined}
           required
           fullWidth
@@ -143,16 +145,19 @@ export function ServiceForm({
           <Input
             type="number"
             step="0.01"
-            value={form.values.commissionRate}
-            onChange={(e) => form.handleChange('commissionRate', parseFloat(e.target.value) || 0)}
-            onBlur={() => form.handleBlur('commissionRate')}
+            value={form.values.commissionRate || ''}
+            onChange={(e) => form.handleChange('commissionRate', e.target.value === '' ? '' : parseFloat(e.target.value))}
+            onBlur={(e) => {
+              form.handleChange('commissionRate', parseFloat(e.target.value) || 0);
+              form.handleBlur('commissionRate');
+            }}
             error={form.touched.commissionRate ? form.errors.commissionRate : undefined}
             fullWidth
             placeholder={isPercentage ? '10.00' : '50.00'}
             helperText={
               isPercentage
-                ? 'Percentage of the sold price (e.g., 15 = 15%)'
-                : 'Fixed peso amount per transaction (e.g., 50 = ₱50)'
+                ? 'Percentage of the sold price (e.g. 10 = 10%)'
+                : 'Fixed amount per service regardless of price'
             }
           />
         </div>

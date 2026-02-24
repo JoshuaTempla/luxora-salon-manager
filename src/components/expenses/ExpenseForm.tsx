@@ -1,3 +1,4 @@
+// src/components/expenses/ExpenseForm.tsx
 // Form for creating/editing expenses
 
 import React, { useEffect } from 'react';
@@ -41,16 +42,12 @@ export function ExpenseForm({
         required: true,
         min: 0,
         custom: (value) => {
-          if (value === undefined || value === null) return null;
+           if (value === undefined || value === null || isNaN(value)) return 'Amount is required';
           return value <= 0 ? 'Amount must be greater than 0' : null;
         },
       },
-      category: {
-        required: true,
-      },
-      date: {
-        required: true,
-      },
+      category: { required: true },
+      date: { required: true },
     }
   );
 
@@ -88,8 +85,7 @@ export function ExpenseForm({
         error={form.touched.description ? form.errors.description : undefined}
         required
         fullWidth
-        rows={3}
-        placeholder="e.g., Rent payment, Utility bill, Supplies"
+        placeholder="e.g., Electricity bill, Shampoo supplies"
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -97,9 +93,12 @@ export function ExpenseForm({
           label="Amount (₱)"
           type="number"
           step="0.01"
-          value={form.values.amount}
-          onChange={(e) => form.handleChange('amount', parseFloat(e.target.value) || 0)}
-          onBlur={() => form.handleBlur('amount')}
+          value={form.values.amount || ''}
+          onChange={(e) => form.handleChange('amount', e.target.value === '' ? '' : parseFloat(e.target.value))}
+          onBlur={(e) => {
+            form.handleChange('amount', parseFloat(e.target.value) || 0);
+            form.handleBlur('amount');
+          }}
           error={form.touched.amount ? form.errors.amount : undefined}
           required
           fullWidth
@@ -129,18 +128,15 @@ export function ExpenseForm({
         fullWidth
       />
 
-      <div className="flex items-center gap-2">
+      <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
         <input
           type="checkbox"
-          id="isRecurring"
           checked={form.values.isRecurring}
           onChange={(e) => form.handleChange('isRecurring', e.target.checked)}
           className="rounded border-gray-300"
         />
-        <label htmlFor="isRecurring" className="text-sm text-gray-700">
-          This is a recurring expense
-        </label>
-      </div>
+        Recurring expense (monthly)
+      </label>
 
       <ModalFooter>
         <Button variant="outline" onClick={onCancel} disabled={isSubmitting}>
@@ -152,7 +148,7 @@ export function ExpenseForm({
           isLoading={isSubmitting}
           disabled={!form.isValid || isSubmitting}
         >
-          {isEditMode ? 'Update Expense' : 'Create Expense'}
+          {isEditMode ? 'Update Expense' : 'Add Expense'}
         </Button>
       </ModalFooter>
     </div>

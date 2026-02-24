@@ -50,7 +50,6 @@ export function EmployeeForm({
     }
   );
 
-  // Reset form when employee changes
   useEffect(() => {
     if (employee) {
       form.setValues({
@@ -116,9 +115,12 @@ export function EmployeeForm({
         label="Hourly Rate (₱)"
         type="number"
         step="0.01"
-        value={form.values.hourlyRate}
-        onChange={(e) => form.handleChange('hourlyRate', parseFloat(e.target.value) || 0)}
-        onBlur={() => form.handleBlur('hourlyRate')}
+        value={form.values.hourlyRate || ''}
+        onChange={(e) => form.handleChange('hourlyRate', e.target.value === '' ? '' : parseFloat(e.target.value))}
+        onBlur={(e) => {
+          form.handleChange('hourlyRate', parseFloat(e.target.value) || 0);
+          form.handleBlur('hourlyRate');
+        }}
         error={form.touched.hourlyRate ? form.errors.hourlyRate : undefined}
         required
         fullWidth

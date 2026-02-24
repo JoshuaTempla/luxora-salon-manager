@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { Input, Select, Button, ModalFooter, Alert } from '@/components/common';
 import { useForm, usePayrollCalculator, useEmployees } from '@/hooks';
 import { Payroll, CreatePayrollDto, DEDUCTION_TYPE_LABELS, DeductionType } from '@/types';
-import { formatCurrency, getToday, getStartOfMonth, getEndOfMonth } from '@/utils';
+import { formatCurrency, getPayrollCutoff } from '@/utils';
 
 interface PayrollFormProps {
   payroll?: Payroll | null;
@@ -28,8 +28,8 @@ export function PayrollForm({
   const form = useForm<CreatePayrollDto>(
     {
       employeeId: payroll?.employeeId || '',
-      startDate: payroll?.startDate || getStartOfMonth(),
-      endDate: payroll?.endDate || getEndOfMonth(),
+      startDate: payroll?.startDate || getPayrollCutoff().startDate,
+      endDate: payroll?.endDate || getPayrollCutoff().endDate,
       totalHoursWorked: payroll?.totalHoursWorked || 0,
       commissionsEarned: payroll?.commissionsEarned || 0,
       taxDeductions: payroll?.taxDeductions || 0,
@@ -79,7 +79,7 @@ export function PayrollForm({
       form.values.totalHoursWorked < 0
     ) return;
 
-    const taxRate = 0; // Tax defaults to 0 (can be manually adjusted if needed)
+    const taxRate = 0;
     const result = await calculatePayroll(
       form.values.employeeId,
       form.values.startDate,
@@ -88,7 +88,6 @@ export function PayrollForm({
       taxRate
     );
 
-    // Update form with calculated values
     if (result) {
       form.handleChange('commissionsEarned', result.commissionsEarned);
       form.handleChange('taxDeductions', result.taxDeductions);
@@ -168,12 +167,15 @@ export function PayrollForm({
         label="Total Hours Worked"
         type="number"
         step="0.5"
-        value={form.values.totalHoursWorked}
+        value={form.values.totalHoursWorked || ''}
         onChange={(e) => {
-          form.handleChange('totalHoursWorked', parseFloat(e.target.value) || 0);
+          form.handleChange('totalHoursWorked', e.target.value === '' ? '' : parseFloat(e.target.value));
           setHasCalculated(false);
         }}
-        onBlur={() => form.handleBlur('totalHoursWorked')}
+        onBlur={(e) => {
+          form.handleChange('totalHoursWorked', parseFloat(e.target.value) || 0);
+          form.handleBlur('totalHoursWorked');
+        }}
         error={form.touched.totalHoursWorked ? form.errors.totalHoursWorked : undefined}
         required
         fullWidth
@@ -221,7 +223,6 @@ export function PayrollForm({
               -{formatCurrency(calculation.taxDeductions)}
             </span>
 
-            {/* Employee deductions section */}
             {calculation.employeeDeductionCount > 0 && (
               <>
                 <div className="col-span-2 border-t border-blue-200 pt-2 mt-1">
@@ -268,9 +269,12 @@ export function PayrollForm({
           label="Tax Deductions (₱)"
           type="number"
           step="0.01"
-          value={form.values.taxDeductions}
-          onChange={(e) => form.handleChange('taxDeductions', parseFloat(e.target.value) || 0)}
-          onBlur={() => form.handleBlur('taxDeductions')}
+          value={form.values.taxDeductions || ''}
+          onChange={(e) => form.handleChange('taxDeductions', e.target.value === '' ? '' : parseFloat(e.target.value))}
+          onBlur={(e) => {
+            form.handleChange('taxDeductions', parseFloat(e.target.value) || 0);
+            form.handleBlur('taxDeductions');
+          }}
           error={form.touched.taxDeductions ? form.errors.taxDeductions : undefined}
           required
           fullWidth
