@@ -15,6 +15,7 @@ import {
 } from '@/components/common';
 import { TransactionList } from './TransactionList';
 import { TransactionForm } from './TransactionForm';
+import { BatchTransactionForm } from './BatchTransactionForm';
 import { TransactionSummary } from './TransactionSummary';
 import { useTransactions, useEmployees, useServices } from '@/hooks';
 import { CreateTransactionDto, TransactionFilters } from '@/types';
@@ -24,6 +25,7 @@ import { DATE_RANGE_PRESETS } from '@/types';
 
 export function TransactionsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [dateRange, setDateRange] = useState('today');
   const [customStartDate, setCustomStartDate] = useState(getToday());
@@ -63,6 +65,7 @@ export function TransactionsPage() {
     loading,
     error,
     createTransaction,
+    bulkCreateTransactions,
     deleteTransaction,
     refetch,
   } = useTransactions(filters);
@@ -81,13 +84,11 @@ export function TransactionsPage() {
     };
   }, [transactions]);
 
-  const handleOpenModal = () => {
-    setIsModalOpen(true);
-  };
+  const handleOpenModal = () => setIsModalOpen(true);
+  const handleCloseModal = () => setIsModalOpen(false);
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-  };
+  const handleOpenBatchModal = () => setIsBatchModalOpen(true);
+  const handleCloseBatchModal = () => setIsBatchModalOpen(false);
 
   const handleSubmit = async (data: CreateTransactionDto) => {
     try {
@@ -97,6 +98,17 @@ export function TransactionsPage() {
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       console.error('Failed to create transaction:', err);
+    }
+  };
+
+  const handleBatchSubmit = async (transactions: CreateTransactionDto[]) => {
+    try {
+      await bulkCreateTransactions(transactions);
+      setSuccessMessage(`${transactions.length} transaction${transactions.length !== 1 ? 's' : ''} recorded successfully!`);
+      handleCloseBatchModal();
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      console.error('Failed to batch create transactions:', err);
     }
   };
 
@@ -151,9 +163,14 @@ export function TransactionsPage() {
           <h1 className="text-3xl font-bold text-gray-900">Transactions</h1>
           <p className="text-gray-600 mt-1">Record and manage daily sales</p>
         </div>
-        <Button variant="primary" onClick={handleOpenModal}>
-          + Record Sale
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleOpenBatchModal}>
+            + Batch Entry
+          </Button>
+          <Button variant="primary" onClick={handleOpenModal}>
+            + Record Sale
+          </Button>
+        </div>
       </div>
 
       {successMessage && (
@@ -238,6 +255,7 @@ export function TransactionsPage() {
         )}
       </Card>
 
+      {/* Single transaction modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
@@ -247,6 +265,20 @@ export function TransactionsPage() {
         <TransactionForm
           onSubmit={handleSubmit}
           onCancel={handleCloseModal}
+          isSubmitting={loading}
+        />
+      </Modal>
+
+      {/* Batch entry modal */}
+      <Modal
+        isOpen={isBatchModalOpen}
+        onClose={handleCloseBatchModal}
+        title="Batch Transaction Entry"
+        size="lg"
+      >
+        <BatchTransactionForm
+          onSubmit={handleBatchSubmit}
+          onCancel={handleCloseBatchModal}
           isSubmitting={loading}
         />
       </Modal>

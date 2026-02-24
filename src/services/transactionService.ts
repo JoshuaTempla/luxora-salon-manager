@@ -64,6 +64,11 @@ export const transactionService = {
     return this.getAll({ ...filters, employeeId });
   },
 
+  // Bulk create transactions (batch entry)
+  async bulkCreate(transactions: CreateTransactionDto[]): Promise<{ count: number }> {
+    return apiClient.post<{ count: number }>('/transactions/bulk', { transactions });
+  },
+
   // Get daily sales summary
   async getDailySummary(date?: string): Promise<{
     totalSales: number;

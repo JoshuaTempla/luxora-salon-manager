@@ -42,6 +42,16 @@ export function useTransactions(filters?: TransactionFilters) {
     }
   };
 
+  const bulkCreateTransactions = async (data: CreateTransactionDto[]): Promise<boolean> => {
+    try {
+      await transactionService.bulkCreate(data);
+      await fetchTransactions();
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   return {
     transactions,
     loading: loading || singleApi.loading,
@@ -49,6 +59,7 @@ export function useTransactions(filters?: TransactionFilters) {
     refetch: fetchTransactions,
     createTransaction,
     deleteTransaction,
+    bulkCreateTransactions,
   };
 }
 

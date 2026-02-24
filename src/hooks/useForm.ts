@@ -30,7 +30,7 @@ export function useForm<T extends Record<string, any>>(
 
       const rules = validationRules[name]!;
 
-      if (rules.required && (!value || value === '')) {
+      if (rules.required && (value === null || value === undefined || value === '')) {
         return 'This field is required';
       }
 
