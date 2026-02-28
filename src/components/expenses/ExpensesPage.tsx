@@ -1,3 +1,4 @@
+// src/components/expenses/ExpensesPage.tsx
 // Expenses page with tabs: Business Expenses | Employee Deductions
 
 import React, { useState, useMemo } from 'react';
@@ -13,8 +14,10 @@ import {
 } from '@/components/common';
 import { ExpenseList } from './ExpenseList';
 import { ExpenseForm } from './ExpenseForm';
+import { BatchExpenseForm } from './BatchExpenseForm';
 import { DeductionList } from './DeductionList';
 import { DeductionForm } from './DeductionForm';
+import { BatchDeductionForm } from './BatchDeductionForm';
 import { useExpenses, useExpenseSummary, useDeductions, useEmployees } from '@/hooks';
 import {
   Expense,
@@ -34,6 +37,7 @@ export function ExpensesPage() {
 
   // ── Business Expense state ──────────────────────────────────────────────
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [isBatchExpenseModalOpen, setIsBatchExpenseModalOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [expenseSuccess, setExpenseSuccess] = useState('');
   const [dateRange, setDateRange] = useState<string>(DATE_RANGE_PRESETS.THIS_MONTH);
@@ -44,6 +48,7 @@ export function ExpensesPage() {
 
   // ── Deduction state ─────────────────────────────────────────────────────
   const [isDeductionModalOpen, setIsDeductionModalOpen] = useState(false);
+  const [isBatchDeductionModalOpen, setIsBatchDeductionModalOpen] = useState(false);
   const [deductionSuccess, setDeductionSuccess] = useState('');
   const [deductionEmployeeFilter, setDeductionEmployeeFilter] = useState('');
   const [deductionStatusFilter, setDeductionStatusFilter] = useState('');
@@ -72,6 +77,7 @@ export function ExpensesPage() {
     loading: expensesLoading,
     error: expensesError,
     createExpense,
+    bulkCreateExpenses,
     updateExpense,
     deleteExpense,
   } = useExpenses(expenseFilters);
@@ -94,6 +100,7 @@ export function ExpensesPage() {
     loading: deductionsLoading,
     error: deductionsError,
     createDeduction,
+    bulkCreateDeductions,
     deleteDeduction,
   } = useDeductions(deductionFilters);
 
@@ -124,6 +131,15 @@ export function ExpensesPage() {
     }
   };
 
+  const handleBatchExpenseSubmit = async (data: CreateExpenseDto[]) => {
+    const ok = await bulkCreateExpenses(data);
+    if (ok) {
+      setIsBatchExpenseModalOpen(false);
+      setExpenseSuccess(`${data.length} expense${data.length !== 1 ? 's' : ''} added successfully!`);
+      setTimeout(() => setExpenseSuccess(''), 3000);
+    }
+  };
+
   const handleExpenseDelete = async (expense: Expense) => {
     await deleteExpense(expense.id);
     setExpenseSuccess('Expense deleted successfully!');
@@ -139,6 +155,15 @@ export function ExpensesPage() {
       setTimeout(() => setDeductionSuccess(''), 3000);
     } catch {
       // error handled by hook
+    }
+  };
+
+  const handleBatchDeductionSubmit = async (data: CreateDeductionDto[]) => {
+    const ok = await bulkCreateDeductions(data);
+    if (ok) {
+      setIsBatchDeductionModalOpen(false);
+      setDeductionSuccess(`${data.length} deduction${data.length !== 1 ? 's' : ''} added successfully!`);
+      setTimeout(() => setDeductionSuccess(''), 3000);
     }
   };
 
@@ -184,7 +209,6 @@ export function ExpensesPage() {
     { label: 'Deducted', value: 'true' },
   ];
 
-  // Summary stats for deductions tab
   const pendingDeductions = deductions.filter((d) => !d.isDeducted);
   const pendingTotal = pendingDeductions.reduce((s, d) => s + d.amount, 0);
 
@@ -196,14 +220,25 @@ export function ExpensesPage() {
           <h1 className="text-3xl font-bold text-gray-900">Expenses</h1>
           <p className="text-gray-600 mt-1">Track business expenses and employee deductions</p>
         </div>
+
         {activeTab === 'business' ? (
-          <Button variant="primary" onClick={() => handleOpenExpenseModal()}>
-            + Add Expense
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsBatchExpenseModalOpen(true)}>
+              Batch Entry
+            </Button>
+            <Button variant="primary" onClick={() => handleOpenExpenseModal()}>
+              + Add Expense
+            </Button>
+          </div>
         ) : (
-          <Button variant="primary" onClick={() => setIsDeductionModalOpen(true)}>
-            + Add Deduction
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsBatchDeductionModalOpen(true)}>
+              Batch Entry
+            </Button>
+            <Button variant="primary" onClick={() => setIsDeductionModalOpen(true)}>
+              + Add Deduction
+            </Button>
+          </div>
         )}
       </div>
 
@@ -221,54 +256,30 @@ export function ExpensesPage() {
         </button>
         <button
           onClick={() => setActiveTab('deductions')}
-          className={`px-6 py-2.5 text-sm font-medium transition-colors relative ${
+          className={`px-6 py-2.5 text-sm font-medium transition-colors ${
             activeTab === 'deductions'
               ? 'bg-blue-600 text-white'
               : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
           Employee Deductions
-          {pendingDeductions.length > 0 && activeTab !== 'deductions' && (
-            <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold bg-red-500 text-white rounded-full">
+          {pendingDeductions.length > 0 && (
+            <span className="ml-2 bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full">
               {pendingDeductions.length}
             </span>
           )}
         </button>
       </div>
 
-      {/* ── BUSINESS EXPENSES TAB ── */}
+      {/* ── Business Expenses Tab ── */}
       {activeTab === 'business' && (
         <>
           {expenseSuccess && <Alert variant="success">{expenseSuccess}</Alert>}
-
-          {/* Summary cards */}
-          {summary && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <p className="text-sm text-gray-500">Total Expenses</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">
-                  {formatCurrency(summary.total ?? 0)}
-                </p>
-              </div>
-              <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <p className="text-sm text-gray-500">Fixed</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">
-                  {formatCurrency(summary.totalFixed ?? 0)}
-                </p>
-              </div>
-              <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <p className="text-sm text-gray-500">Variable</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">
-                  {formatCurrency(summary.totalVariable ?? 0)}
-                </p>
-              </div>
-            </div>
-          )}
-
+          {expensesError && <Alert variant="danger">{expensesError}</Alert>}
           {/* Filters */}
           <Card>
             <CardHeader title="Filters" />
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Select
                 label="Date Range"
                 value={dateRange}
@@ -278,18 +289,36 @@ export function ExpensesPage() {
               />
               {dateRange === 'custom' && (
                 <>
-                  <Input label="Start Date" type="date" value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)} fullWidth />
-                  <Input label="End Date" type="date" value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)} fullWidth />
+                  <Input
+                    label="Start Date"
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    fullWidth
+                  />
+                  <Input
+                    label="End Date"
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    fullWidth
+                  />
                 </>
               )}
-              <Select label="Category" value={categoryFilter}
+              <Select
+                label="Category"
+                value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                options={categoryOptions} fullWidth />
-              <Select label="Type" value={recurringFilter}
+                options={categoryOptions}
+                fullWidth
+              />
+              <Select
+                label="Type"
+                value={recurringFilter}
                 onChange={(e) => setRecurringFilter(e.target.value)}
-                options={recurringOptions} fullWidth />
+                options={recurringOptions}
+                fullWidth
+              />
             </div>
           </Card>
 
@@ -311,40 +340,22 @@ export function ExpensesPage() {
         </>
       )}
 
-      {/* ── EMPLOYEE DEDUCTIONS TAB ── */}
+      {/* ── Employee Deductions Tab ── */}
       {activeTab === 'deductions' && (
         <>
           {deductionSuccess && <Alert variant="success">{deductionSuccess}</Alert>}
+          {deductionsError && <Alert variant="danger">{deductionsError}</Alert>}
 
-          {/* Summary cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <p className="text-sm text-gray-500">Total Deductions Shown</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
-                {formatCurrency(deductions.reduce((s, d) => s + d.amount, 0))}
-              </p>
-            </div>
-            <div className="bg-yellow-50 rounded-xl border border-yellow-200 p-4">
-              <p className="text-sm text-yellow-700">Pending (not yet deducted)</p>
-              <p className="text-2xl font-bold text-yellow-800 mt-1">
-                {formatCurrency(pendingTotal)}
-              </p>
-              <p className="text-xs text-yellow-600 mt-1">
-                {pendingDeductions.length} deduction{pendingDeductions.length !== 1 ? 's' : ''} pending
-              </p>
-            </div>
-            <div className="bg-green-50 rounded-xl border border-green-200 p-4">
-              <p className="text-sm text-green-700">Already Deducted</p>
-              <p className="text-2xl font-bold text-green-800 mt-1">
-                {formatCurrency(deductions.filter(d => d.isDeducted).reduce((s, d) => s + d.amount, 0))}
-              </p>
-            </div>
-          </div>
+          {pendingDeductions.length > 0 && (
+            <Alert variant="warning">
+              {pendingDeductions.length} pending deduction{pendingDeductions.length !== 1 ? 's' : ''} totalling {formatCurrency(pendingTotal)} — will be applied on next payroll.
+            </Alert>
+          )}
 
           {/* Filters */}
           <Card>
             <CardHeader title="Filters" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Select
                 label="Employee"
                 value={deductionEmployeeFilter}
@@ -365,7 +376,7 @@ export function ExpensesPage() {
           <Card>
             <CardHeader
               title="Employee Deductions"
-              subtitle={`${deductions.length} record${deductions.length !== 1 ? 's' : ''}`}
+              subtitle={`${deductions.length} deduction${deductions.length !== 1 ? 's' : ''}`}
             />
             {deductionsLoading ? (
               <LoadingSpinner message="Loading..." />
@@ -379,7 +390,9 @@ export function ExpensesPage() {
         </>
       )}
 
-      {/* Business Expense Modal */}
+      {/* ── Modals ── */}
+
+      {/* Single expense */}
       <Modal
         isOpen={isExpenseModalOpen}
         onClose={handleCloseExpenseModal}
@@ -394,7 +407,21 @@ export function ExpensesPage() {
         />
       </Modal>
 
-      {/* Deduction Modal */}
+      {/* Batch expenses */}
+      <Modal
+        isOpen={isBatchExpenseModalOpen}
+        onClose={() => setIsBatchExpenseModalOpen(false)}
+        title="Batch Expense Entry"
+        size="xl"
+      >
+        <BatchExpenseForm
+          onSubmit={handleBatchExpenseSubmit}
+          onCancel={() => setIsBatchExpenseModalOpen(false)}
+          isSubmitting={expensesLoading}
+        />
+      </Modal>
+
+      {/* Single deduction */}
       <Modal
         isOpen={isDeductionModalOpen}
         onClose={() => setIsDeductionModalOpen(false)}
@@ -404,6 +431,20 @@ export function ExpensesPage() {
         <DeductionForm
           onSubmit={handleDeductionSubmit}
           onCancel={() => setIsDeductionModalOpen(false)}
+          isSubmitting={deductionsLoading}
+        />
+      </Modal>
+
+      {/* Batch deductions */}
+      <Modal
+        isOpen={isBatchDeductionModalOpen}
+        onClose={() => setIsBatchDeductionModalOpen(false)}
+        title="Batch Deduction Entry"
+        size="xl"
+      >
+        <BatchDeductionForm
+          onSubmit={handleBatchDeductionSubmit}
+          onCancel={() => setIsBatchDeductionModalOpen(false)}
           isSubmitting={deductionsLoading}
         />
       </Modal>

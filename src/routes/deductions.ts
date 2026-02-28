@@ -313,4 +313,78 @@ router.delete('/:id', async (req: Request, res: Response) => {
   }
 });
 
+// Bulk create deductions
+router.post('/bulk', async (req: Request, res: Response) => {
+  try {
+    const { deductions } = req.body;
+
+    if (!Array.isArray(deductions) || deductions.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Deductions array is required and cannot be empty',
+      });
+    }
+
+    const validatedDeductions = [];
+
+    for (const d of deductions) {
+      const { employeeId, type, description, amount, date } = d;
+
+      if (!employeeId || !type || !description || amount === undefined) {
+        return res.status(400).json({
+          success: false,
+          error: 'Each deduction must have employeeId, type, description, and amount',
+        });
+      }
+
+      if (!VALID_TYPES.includes(type)) {
+        return res.status(400).json({
+          success: false,
+          error: `type must be one of: ${VALID_TYPES.join(', ')}`,
+        });
+      }
+
+      if (amount <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'All amounts must be greater than 0',
+        });
+      }
+
+      const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
+      if (!employee) {
+        return res.status(400).json({
+          success: false,
+          error: `Employee not found: ${employeeId}`,
+        });
+      }
+
+      validatedDeductions.push({
+        employeeId,
+        type,
+        description: description.trim(),
+        amount,
+        date: date ? new Date(date) : new Date(),
+        isDeducted: false,
+      });
+    }
+
+    const created = await prisma.employeeDeduction.createMany({
+      data: validatedDeductions,
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: { count: created.count },
+      message: `${created.count} deductions created successfully`,
+    });
+  } catch (error) {
+    console.error('Bulk create deductions error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to create deductions',
+    });
+  }
+});
+
 export default router;

@@ -4,10 +4,10 @@ import React, { useState, useCallback } from 'react';
 import { Select, Input, Button, ModalFooter, Alert } from '@/components/common';
 import { useEmployees, useServices } from '@/hooks';
 import { CreateTransactionDto, Service } from '@/types';
-import { formatCurrency, calculateCommission } from '@/utils';
+import { formatCurrency, calculateCommission, getToday } from '@/utils';
 
 interface BatchRow {
-  id: number;           // local key only, not sent to backend
+  id: number;
   serviceId: string;
   soldPrice: number;
   service: Service | null;
@@ -32,6 +32,8 @@ export function BatchTransactionForm({
 
   const [employeeId, setEmployeeId] = useState('');
   const [employeeError, setEmployeeError] = useState('');
+  const [date, setDate] = useState(getToday());
+  const [dateError, setDateError] = useState('');
   const [rows, setRows] = useState<BatchRow[]>([newRow()]);
   const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
 
@@ -62,7 +64,6 @@ export function BatchTransactionForm({
           : r
       )
     );
-    // Clear any error on this row
     setRowErrors((prev) => {
       const next = { ...prev };
       delete next[rowId];
@@ -71,7 +72,7 @@ export function BatchTransactionForm({
   }, [activeServices]);
 
   const handlePriceChange = useCallback((rowId: number, value: string) => {
-    const soldPrice = parseFloat(value) || 0;
+    const soldPrice = value === '' ? 0 : (parseFloat(value) || 0);
     setRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, soldPrice } : r)));
   }, []);
 
@@ -109,7 +110,6 @@ export function BatchTransactionForm({
   const handleSubmit = async () => {
     let valid = true;
 
-    // Validate employee
     if (!employeeId) {
       setEmployeeError('Please select an employee');
       valid = false;
@@ -117,7 +117,13 @@ export function BatchTransactionForm({
       setEmployeeError('');
     }
 
-    // Validate rows
+    if (!date) {
+      setDateError('Please select a date');
+      valid = false;
+    } else {
+      setDateError('');
+    }
+
     const newRowErrors: Record<number, string> = {};
     rows.forEach((row) => {
       if (!row.serviceId) {
@@ -136,6 +142,7 @@ export function BatchTransactionForm({
       employeeId,
       serviceId: row.serviceId,
       soldPrice: row.soldPrice,
+      date, // same date applied to all rows in the batch
     }));
 
     await onSubmit(transactions);
@@ -150,6 +157,21 @@ export function BatchTransactionForm({
           No active employees found. Please activate an employee first.
         </Alert>
       )}
+
+      {/* Date — single date applies to all rows */}
+      <Input
+        label="Transaction Date"
+        type="date"
+        value={date}
+        onChange={(e) => {
+          setDate(e.target.value);
+          setDateError('');
+        }}
+        error={dateError || undefined}
+        required
+        fullWidth
+        helperText="Defaults to today — change to backdate all entries in this batch"
+      />
 
       {/* Employee selector */}
       <Select
@@ -178,10 +200,9 @@ export function BatchTransactionForm({
           <span className="col-span-2" />
         </div>
 
-        {rows.map((row, _index) => (
+        {rows.map((row) => (
           <div key={row.id} className="space-y-1">
             <div className="grid grid-cols-12 gap-2 items-start">
-              {/* Service dropdown */}
               <div className="col-span-6">
                 <select
                   value={row.serviceId}
@@ -198,7 +219,6 @@ export function BatchTransactionForm({
                 </select>
               </div>
 
-              {/* Price input */}
               <div className="col-span-4">
                 <input
                   type="number"
@@ -213,7 +233,6 @@ export function BatchTransactionForm({
                 />
               </div>
 
-              {/* Remove button */}
               <div className="col-span-2 flex justify-center pt-1">
                 <button
                   type="button"
@@ -227,8 +246,7 @@ export function BatchTransactionForm({
               </div>
             </div>
 
-            {/* Row error + commission preview */}
-            <div className="grid grid-cols-12 gap-2 px-0">
+            <div className="grid grid-cols-12 gap-2">
               <div className="col-span-6">
                 {rowErrors[row.id] && (
                   <p className="text-xs text-red-500 pl-1">{rowErrors[row.id]}</p>
@@ -253,7 +271,6 @@ export function BatchTransactionForm({
         ))}
       </div>
 
-      {/* Add row button */}
       <Button variant="outline" size="sm" onClick={handleAddRow} fullWidth>
         + Add Another Service
       </Button>

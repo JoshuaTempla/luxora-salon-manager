@@ -46,7 +46,6 @@ export interface DeductionFilters {
 }
 
 export const deductionService = {
-  // Get all deductions with optional filters
   async getAll(filters?: DeductionFilters): Promise<EmployeeDeduction[]> {
     const params = new URLSearchParams();
     if (filters?.employeeId) params.append('employeeId', filters.employeeId);
@@ -54,32 +53,30 @@ export const deductionService = {
     if (filters?.type) params.append('type', filters.type);
     if (filters?.startDate) params.append('startDate', filters.startDate);
     if (filters?.endDate) params.append('endDate', filters.endDate);
-
     const query = params.toString() ? `?${params.toString()}` : '';
     return apiClient.get<EmployeeDeduction[]>(`/deductions${query}`);
   },
 
-  // Get single deduction by ID
   async getById(id: string): Promise<EmployeeDeduction> {
     return apiClient.get<EmployeeDeduction>(`/deductions/${id}`);
   },
 
-  // Create new deduction
   async create(data: CreateDeductionDto): Promise<EmployeeDeduction> {
     return apiClient.post<EmployeeDeduction>('/deductions', data);
   },
 
-  // Update deduction
+  async bulkCreate(deductions: CreateDeductionDto[]): Promise<{ count: number }> {
+    return apiClient.post<{ count: number }>('/deductions/bulk', { deductions });
+  },
+
   async update(id: string, data: UpdateDeductionDto): Promise<EmployeeDeduction> {
     return apiClient.put<EmployeeDeduction>(`/deductions/${id}`, data);
   },
 
-  // Delete deduction (only if not yet deducted)
   async delete(id: string): Promise<void> {
     return apiClient.delete<void>(`/deductions/${id}`);
   },
 
-  // Get pending deductions total for an employee (used in payroll preview)
   async getPendingTotal(employeeId: string): Promise<{ total: number; count: number; deductions: EmployeeDeduction[] }> {
     return apiClient.get(`/deductions/pending/${employeeId}`);
   },

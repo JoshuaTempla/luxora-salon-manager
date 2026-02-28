@@ -5,7 +5,7 @@ import { Select, Input, Button, ModalFooter, Alert } from '@/components/common';
 import { useForm } from '@/hooks';
 import { useEmployees, useServices } from '@/hooks';
 import { CreateTransactionDto, Service } from '@/types';
-import { formatCurrency, calculateCommission } from '@/utils';
+import { formatCurrency, calculateCommission, getToday } from '@/utils';
 
 interface TransactionFormProps {
   onSubmit: (data: CreateTransactionDto) => Promise<void>;
@@ -28,18 +28,19 @@ export function TransactionForm({
       employeeId: '',
       serviceId: '',
       soldPrice: 0,
+      date: getToday(),
     },
     {
       employeeId: { required: true },
       serviceId: { required: true },
       soldPrice: {
         required: true,
-        min: 0,
         custom: (value) => {
-          if (value === undefined || value === null || isNaN(value)) return 'Price is required';
-          return value <= 0 ? 'Price must be greater than 0' : null;
+          if (value === undefined || value === null || isNaN(value as number)) return 'Price is required';
+          return (value as number) <= 0 ? 'Price must be greater than 0' : null;
         },
       },
+      date: { required: true },
     }
   );
 
@@ -56,9 +57,9 @@ export function TransactionForm({
 
   // Calculate commission preview
   useEffect(() => {
-    if (selectedService && form.values.soldPrice && form.values.soldPrice > 0) {
+    if (selectedService && form.values.soldPrice && (form.values.soldPrice as number) > 0) {
       const commission = calculateCommission(
-        form.values.soldPrice,
+        form.values.soldPrice as number,
         selectedService.commissionRate,
         selectedService.commissionType
       );
@@ -102,6 +103,19 @@ export function TransactionForm({
         <Alert variant="warning">No active employees found.</Alert>
       )}
 
+      {/* Date — shown first so backdating is obvious */}
+      <Input
+        label="Transaction Date"
+        type="date"
+        value={form.values.date as string}
+        onChange={(e) => form.handleChange('date', e.target.value)}
+        onBlur={() => form.handleBlur('date')}
+        error={form.touched.date ? form.errors.date : undefined}
+        required
+        fullWidth
+        helperText="Defaults to today — change to backdate"
+      />
+
       <Select
         label="Employee"
         value={form.values.employeeId}
@@ -130,8 +144,8 @@ export function TransactionForm({
         label="Price Sold (₱)"
         type="number"
         step="0.01"
-        value={form.values.soldPrice || ''}
-        onChange={(e) => form.handleChange('soldPrice', e.target.value === '' ? '' : parseFloat(e.target.value))}
+        value={(form.values.soldPrice as number) || ''}
+        onChange={(e) => form.handleChange('soldPrice', parseFloat(e.target.value))}
         onBlur={(e) => {
           form.handleChange('soldPrice', parseFloat(e.target.value) || 0);
           form.handleBlur('soldPrice');

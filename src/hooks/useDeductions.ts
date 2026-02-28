@@ -15,14 +15,11 @@ export function useDeductions(filters?: DeductionFilters) {
   const { loading, error, execute } = useApi<EmployeeDeduction[]>();
   const singleApi = useApi<EmployeeDeduction>();
 
-  // Stringify filters for stable dependency
   const filtersKey = JSON.stringify(filters);
 
   const fetchDeductions = useCallback(async () => {
     const result = await execute(() => deductionService.getAll(filters));
-    if (result) {
-      setDeductions(result);
-    }
+    if (result) setDeductions(result);
   }, [execute, filtersKey]);
 
   useEffect(() => {
@@ -31,17 +28,23 @@ export function useDeductions(filters?: DeductionFilters) {
 
   const createDeduction = async (data: CreateDeductionDto): Promise<EmployeeDeduction | null> => {
     const result = await singleApi.execute(() => deductionService.create(data));
-    if (result) {
-      setDeductions((prev) => [result, ...prev]);
-    }
+    if (result) setDeductions((prev) => [result, ...prev]);
     return result;
+  };
+
+  const bulkCreateDeductions = async (data: CreateDeductionDto[]): Promise<boolean> => {
+    try {
+      await deductionService.bulkCreate(data);
+      await fetchDeductions();
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const updateDeduction = async (id: string, data: UpdateDeductionDto): Promise<EmployeeDeduction | null> => {
     const result = await singleApi.execute(() => deductionService.update(id, data));
-    if (result) {
-      setDeductions((prev) => prev.map((d) => (d.id === id ? result : d)));
-    }
+    if (result) setDeductions((prev) => prev.map((d) => (d.id === id ? result : d)));
     return result;
   };
 
@@ -61,12 +64,12 @@ export function useDeductions(filters?: DeductionFilters) {
     error: error || singleApi.error,
     refetch: fetchDeductions,
     createDeduction,
+    bulkCreateDeductions,
     updateDeduction,
     deleteDeduction,
   };
 }
 
-// Specialized hook for pending deductions of a specific employee
 export function usePendingDeductions(employeeId: string) {
   const { data, loading, error, execute } = useApi<{
     total: number;

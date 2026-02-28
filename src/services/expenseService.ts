@@ -15,7 +15,7 @@ export interface CreateExpenseDto {
   description: string;
   amount: number;
   category: 'FIXED' | 'VARIABLE';
-  date?: string; // Optional, defaults to now
+  date?: string;
   isRecurring?: boolean;
 }
 
@@ -29,7 +29,6 @@ export interface ExpenseFilters {
 }
 
 export const expenseService = {
-  // Get all expenses with optional filters
   async getAll(filters?: ExpenseFilters): Promise<Expense[]> {
     const params = new URLSearchParams();
     if (filters?.startDate) params.append('startDate', filters.startDate);
@@ -38,32 +37,30 @@ export const expenseService = {
     if (filters?.isRecurring !== undefined) {
       params.append('isRecurring', filters.isRecurring.toString());
     }
-    
     const query = params.toString() ? `?${params.toString()}` : '';
     return apiClient.get<Expense[]>(`/expenses${query}`);
   },
 
-  // Get single expense by ID
   async getById(id: string): Promise<Expense> {
     return apiClient.get<Expense>(`/expenses/${id}`);
   },
 
-  // Create new expense
   async create(data: CreateExpenseDto): Promise<Expense> {
     return apiClient.post<Expense>('/expenses', data);
   },
 
-  // Update expense
+  async bulkCreate(expenses: CreateExpenseDto[]): Promise<{ count: number }> {
+    return apiClient.post<{ count: number }>('/expenses/bulk', { expenses });
+  },
+
   async update(id: string, data: UpdateExpenseDto): Promise<Expense> {
     return apiClient.put<Expense>(`/expenses/${id}`, data);
   },
 
-  // Delete expense
   async delete(id: string): Promise<void> {
     return apiClient.delete<void>(`/expenses/${id}`);
   },
 
-  // Get expense summary for a period
   async getSummary(startDate: string, endDate: string): Promise<{
     totalFixed: number;
     totalVariable: number;

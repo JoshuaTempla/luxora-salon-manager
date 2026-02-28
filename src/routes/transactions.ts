@@ -113,7 +113,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 // Create new transaction
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { employeeId, serviceId, soldPrice } = req.body;
+    const { employeeId, serviceId, soldPrice, date } = req.body;
 
     // Validation
     if (!employeeId || !serviceId) {
@@ -180,11 +180,12 @@ router.post('/', async (req: Request, res: Response) => {
     // Create transaction
     const transaction = await prisma.transaction.create({
       data: {
-        employeeId,
-        serviceId,
-        soldPrice: finalPrice,
-        commissionAmount,
-      },
+      employeeId,
+      serviceId,
+      soldPrice: finalPrice,
+      commissionAmount,
+      ...(date ? { createdAt: new Date(date) } : {}),
+    },
       include: {
         employee: {
           select: {
@@ -327,7 +328,7 @@ router.post('/bulk', async (req: Request, res: Response) => {
     const validatedTransactions = [];
 
     for (const txn of transactions) {
-      const { employeeId, serviceId, soldPrice } = txn;
+      const { employeeId, serviceId, soldPrice, date } = txn;
 
       if (!employeeId || !serviceId) {
         return res.status(400).json({

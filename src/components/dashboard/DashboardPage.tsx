@@ -1,4 +1,3 @@
-// src/components/dashboard/DashboardPage.tsx
 // Main dashboard page with overview and analytics
 
 import React, { useState, useMemo } from 'react';

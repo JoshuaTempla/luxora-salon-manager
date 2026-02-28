@@ -8,13 +8,11 @@ import { useApi } from './useApi';
 export function useExpenses(filters?: ExpenseFilters) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const { loading, error, execute } = useApi<Expense[]>();
-  const singleApi = useApi<Expense>(); // Separate API hook for single expense operations
+  const singleApi = useApi<Expense>();
 
   const fetchExpenses = useCallback(async () => {
     const result = await execute(() => expenseService.getAll(filters));
-    if (result) {
-      setExpenses(result);
-    }
+    if (result) setExpenses(result);
   }, [execute, filters]);
 
   useEffect(() => {
@@ -23,17 +21,23 @@ export function useExpenses(filters?: ExpenseFilters) {
 
   const createExpense = async (data: CreateExpenseDto): Promise<Expense | null> => {
     const result = await singleApi.execute(() => expenseService.create(data));
-    if (result) {
-      setExpenses((prev) => [result, ...prev]);
-    }
+    if (result) setExpenses((prev) => [result, ...prev]);
     return result;
+  };
+
+  const bulkCreateExpenses = async (data: CreateExpenseDto[]): Promise<boolean> => {
+    try {
+      await expenseService.bulkCreate(data);
+      await fetchExpenses();
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const updateExpense = async (id: string, data: UpdateExpenseDto): Promise<Expense | null> => {
     const result = await singleApi.execute(() => expenseService.update(id, data));
-    if (result) {
-      setExpenses((prev) => prev.map((exp) => (exp.id === id ? result : exp)));
-    }
+    if (result) setExpenses((prev) => prev.map((exp) => (exp.id === id ? result : exp)));
     return result;
   };
 
@@ -53,12 +57,12 @@ export function useExpenses(filters?: ExpenseFilters) {
     error: error || singleApi.error,
     refetch: fetchExpenses,
     createExpense,
+    bulkCreateExpenses,
     updateExpense,
     deleteExpense,
   };
 }
 
-// Specialized hook for expense summary
 export function useExpenseSummary(startDate: string, endDate: string) {
   const { data, loading, error, execute } = useApi<{
     totalFixed: number;
@@ -75,10 +79,5 @@ export function useExpenseSummary(startDate: string, endDate: string) {
     fetchSummary();
   }, [fetchSummary]);
 
-  return {
-    summary: data,
-    loading,
-    error,
-    refetch: fetchSummary,
-  };
+  return { summary: data, loading, error, refetch: fetchSummary };
 }
