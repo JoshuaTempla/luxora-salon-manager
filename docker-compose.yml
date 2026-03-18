@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  luxora:
+    build: .
+    container_name: luxora-salon
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: ${PORT}
+      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: ${DATABASE_URL}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+    volumes:
+      - luxora-db:/app/data
+    restart: unless-stopped
+
+volumes:
+  luxora-db:
