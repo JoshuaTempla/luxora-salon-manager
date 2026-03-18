@@ -2,6 +2,9 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { checkDBConnection, disconnectDB } from './lib/db.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
 
 // Import routes
 import authRoutes from './routes/auth';
@@ -12,6 +15,9 @@ import payrollRoutes from './routes/payroll';
 import expenseRoutes from './routes/expenses';
 import analyticsRoutes from './routes/analytics';
 import deductionRoutes from './routes/deductions';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables
 dotenv.config();
@@ -74,6 +80,16 @@ app.get('/', (_req: Request, res: Response) => {
     },
   });
 });
+
+// Serve static frontend files (add this AFTER all API routes)
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../client')));
+  
+  // Catch-all: send index.html for any non-API route
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(__dirname, '../client/index.html'));
+  });
+}
 
 // 404 handler
 app.use((_req: Request, res: Response) => {

@@ -62,3 +62,6 @@ yarn.lock
 # Build output
 dist/
 build/
+
+#docker
+docker-compose.yml
