@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyToken, extractTokenFromHeader, JWTPayload } from '../lib/auth';
+import { verifyToken, extractTokenFromHeader, JWTPayload } from '../lib/auth.js';
 
 // Extend Express Request type to include user
 declare global {
