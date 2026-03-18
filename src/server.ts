@@ -7,14 +7,14 @@ import { fileURLToPath } from 'url';
 
 
 // Import routes
-import authRoutes from './routes/auth';
-import employeeRoutes from './routes/employees';
-import serviceRoutes from './routes/services';
-import transactionRoutes from './routes/transactions';
-import payrollRoutes from './routes/payroll';
-import expenseRoutes from './routes/expenses';
-import analyticsRoutes from './routes/analytics';
-import deductionRoutes from './routes/deductions';
+import authRoutes from './routes/auth.js';
+import employeeRoutes from './routes/employees.js';
+import serviceRoutes from './routes/services.js';
+import transactionRoutes from './routes/transactions.js';
+import payrollRoutes from './routes/payroll.js';
+import expenseRoutes from './routes/expenses.js';
+import analyticsRoutes from './routes/analytics.js';
+import deductionRoutes from './routes/deductions.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

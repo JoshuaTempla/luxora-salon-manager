@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../lib/db';
-import { hashPassword, comparePassword, generateToken } from '../lib/auth';
-import { authenticateToken } from '../middleware/auth';
+import { prisma } from '../lib/db.js';
+import { hashPassword, comparePassword, generateToken } from '../lib/auth.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = Router();
 
