@@ -1,11 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/db';
-// import { authenticateToken } from '../middleware/auth';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
 // All routes require authentication
-// router.use(authenticateToken);
+router.use(authenticateToken);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EXISTING ENDPOINTS (for dashboard)

@@ -1,7 +1,8 @@
 // Main layout component with sidebar and header
 
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContex';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -9,8 +10,15 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
   const navigation = [
     {
       name: 'Dashboard',
@@ -134,12 +142,21 @@ export function Layout({ children }: LayoutProps) {
 
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <p className="text-sm font-medium text-gray-900">Admin User</p>
-              <p className="text-xs text-gray-500">Administrator</p>
+              <p className="text-sm font-medium text-gray-900">{user?.username ?? 'Admin'}</p>
+              <p className="text-xs text-gray-500">{user?.role ?? 'Administrator'}</p>
             </div>
             <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
-              A
+              {user?.username?.[0]?.toUpperCase() ?? 'A'}
             </div>
+            <button
+              onClick={handleLogout}
+              title="Logout"
+              className="text-gray-400 hover:text-red-500 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
           </div>
         </header>
 
