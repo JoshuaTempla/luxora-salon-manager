@@ -62,24 +62,24 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/deductions', deductionRoutes);
 
-// Root endpoint
-app.get('/', (_req: Request, res: Response) => {
-  res.status(200).json({
-    success: true,
-    message: 'Salon Management System API',
-    version: '1.0.0',
-    endpoints: {
-      auth: '/api/auth',
-      employees: '/api/employees',
-      services: '/api/services',
-      transactions: '/api/transactions',
-      payroll: '/api/payroll',
-      expenses: '/api/expenses',
-      analytics: '/api/analytics',
-      deductions: '/api/deductions',
-    },
-  });
-});
+// // Root endpoint
+// app.get('/', (_req: Request, res: Response) => {
+//   res.status(200).json({
+//     success: true,
+//     message: 'Salon Management System API',
+//     version: '1.0.0',
+//     endpoints: {
+//       auth: '/api/auth',
+//       employees: '/api/employees',
+//       services: '/api/services',
+//       transactions: '/api/transactions',
+//       payroll: '/api/payroll',
+//       expenses: '/api/expenses',
+//       analytics: '/api/analytics',
+//       deductions: '/api/deductions',
+//     },
+//   });
+// });
 
 // Serve static frontend files (add this AFTER all API routes)
 if (process.env.NODE_ENV === 'production') {
