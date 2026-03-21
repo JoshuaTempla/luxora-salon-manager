@@ -1,13 +1,6 @@
-// prisma.config.js
-require('dotenv').config()
+import { defineConfig } from 'prisma/config';
 
-module.exports = {
+export default defineConfig({
+  // earlyAccess: true,
   schema: 'prisma/schema.prisma',
-  migrations: {
-    path: 'prisma/migrations',
-  },
-  datasource: {
-    url: process.env.DATABASE_URL || 'file:./prisma/dev.db',
-  },
-}
-
+});
