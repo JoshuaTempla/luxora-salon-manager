@@ -1,6 +1,9 @@
-import { defineConfig } from 'prisma/config';
+// prisma.config.js
 
-export default defineConfig({
-  // earlyAccess: true,
+module.exports = {
   schema: 'prisma/schema.prisma',
-});
+  migrations: {
+    path: 'prisma/migrations',
+  },
+}
+
