@@ -3,9 +3,10 @@ import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-// Create Prisma adapter with better-sqlite3 (using url format)
+const dbUrl = process.env.DATABASE_URL ?? 'file:/app/data/prod.db';
+
 const adapter = new PrismaBetterSqlite3({
-    url: "file:prisma/dev.db"
+    url: dbUrl
 });
 
 export const prisma = 
@@ -17,12 +18,10 @@ export const prisma =
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
-//helper function to safely disconnect Prisma
 export async function disconnectDB(){
     await prisma.$disconnect();
 }
 
-//helper function to check database connection
 export async function checkDBConnection() {
     try{
         await prisma.$connect();
